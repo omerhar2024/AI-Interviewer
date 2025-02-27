@@ -111,7 +111,7 @@ export default function PreparationPage() {
   }
 
   return (
-    <div className="container py-16 max-w-4xl">
+    <div className="w-full p-6 mx-auto max-w-7xl">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-4xl font-bold mb-2">Preparation</h1>
@@ -123,7 +123,7 @@ export default function PreparationPage() {
               Progress: {progress}%
             </span>
           </div>
-          <Progress value={progress} className="w-[200px]" />
+          <Progress value={progress} className="w-[200px] h-2 bg-blue-100" />
         </div>
       </div>
 
@@ -160,7 +160,7 @@ export default function PreparationPage() {
           onClick={handleSaveAndProceed}
           disabled={saving}
           size="lg"
-          className="w-full bg-green-600 hover:bg-green-700"
+          className="w-full bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
         >
           {saving ? "Saving..." : "Save and Proceed to Recording"}
         </Button>

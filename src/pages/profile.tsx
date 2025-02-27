@@ -71,10 +71,10 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="container py-16">
+    <div className="w-full p-6 mx-auto max-w-7xl">
       <h1 className="text-4xl font-bold mb-8">Profile</h1>
 
-      <div className="max-w-md space-y-8">
+      <div className="max-w-md space-y-8 bg-gradient-to-br from-blue-50 to-white p-6 rounded-xl shadow-lg border border-blue-100">
         <div className="space-y-2">
           <Label>Email</Label>
           <Input
@@ -85,7 +85,7 @@ export default function ProfilePage() {
           <Button
             onClick={() => handleUpdateEmail(profile?.email || "")}
             disabled={updating || profile?.email === user?.email}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
           >
             Update Email
           </Button>

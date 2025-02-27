@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { useFeedback } from "@/lib/hooks/use-feedback";
+import { useRealtimeFeedback } from "@/lib/hooks/use-realtime-feedback";
 
 type Analysis = {
   id: string;
@@ -44,31 +45,9 @@ function extractFeedback(
 }
 
 export default function AnalysisPage() {
-  const [loading, setLoading] = useState(true);
-  const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const { responseId } = useParams();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const fetchAnalysis = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("feedback")
-          .select("*")
-          .eq("response_id", responseId)
-          .single();
-
-        if (error) throw error;
-        setAnalysis(data);
-      } catch (error) {
-        console.error("Error fetching analysis:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (responseId) fetchAnalysis();
-  }, [responseId]);
+  const { feedback: analysis, loading } = useRealtimeFeedback(responseId);
 
   if (loading) {
     return (
@@ -87,27 +66,34 @@ export default function AnalysisPage() {
   const overallScore = extractOverallScore(analysis?.text);
 
   return (
-    <div className="container py-16 max-w-4xl">
+    <div className="w-full p-6 mx-auto max-w-7xl">
       <h1 className="text-4xl font-bold mb-8">STAR Analysis</h1>
 
       <div className="grid gap-6 mb-8">
-        <Card className="p-6 bg-muted">
+        <Card className="p-6 bg-gradient-to-br from-blue-50 to-white rounded-xl shadow-lg border border-blue-100">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-semibold">Overall Score</h3>
+            <h3 className="text-xl font-semibold text-blue-800">
+              Overall Score
+            </h3>
             <span className="text-2xl font-bold">{overallScore}/10</span>
           </div>
-          <Progress value={overallScore * 10} className="h-2" />
+          <Progress value={overallScore * 10} className="h-2 bg-blue-100" />
         </Card>
 
         {sections.map((section) => {
           const score = extractScore(analysis?.text, section);
           return (
-            <Card key={section} className="p-6">
+            <Card
+              key={section}
+              className="p-6 bg-gradient-to-br from-blue-50 to-white rounded-xl shadow-lg border border-blue-100"
+            >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold">{section}</h3>
+                <h3 className="text-xl font-semibold text-blue-800">
+                  {section}
+                </h3>
                 <span className="text-2xl font-bold">{score}/10</span>
               </div>
-              <Progress value={score * 10} className="h-2 mb-4" />
+              <Progress value={score * 10} className="h-2 mb-4 bg-blue-100" />
 
               <div className="space-y-4">
                 {feedbackTypes.map((type) => (
@@ -128,7 +114,12 @@ export default function AnalysisPage() {
         <Button variant="outline" onClick={() => navigate(-1)}>
           Back
         </Button>
-        <Button onClick={() => navigate("/dashboard")}>Go to Dashboard</Button>
+        <Button
+          onClick={() => navigate("/dashboard")}
+          className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
+        >
+          Go to Dashboard
+        </Button>
       </div>
     </div>
   );

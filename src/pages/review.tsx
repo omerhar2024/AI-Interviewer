@@ -136,7 +136,7 @@ export default function ReviewPage() {
   }
 
   return (
-    <div className="container py-16 max-w-4xl">
+    <div className="w-full p-6 mx-auto max-w-7xl">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -148,15 +148,17 @@ export default function ReviewPage() {
         </div>
 
         {/* Audio Player */}
-        <div className="p-6 rounded-lg border bg-card">
-          <h2 className="text-xl font-semibold mb-4">Recording</h2>
+        <div className="p-6 rounded-xl shadow-lg border bg-gradient-to-br from-blue-50 to-white">
+          <h2 className="text-xl font-semibold mb-4 text-blue-800">
+            Recording
+          </h2>
           <audio src={response?.audio_url} controls className="w-full" />
         </div>
 
         {/* Transcript */}
-        <div className="p-6 rounded-lg border bg-card">
+        <div className="p-6 rounded-xl shadow-lg border bg-gradient-to-br from-blue-50 to-white">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Transcript</h2>
+            <h2 className="text-xl font-semibold text-blue-800">Transcript</h2>
             {!transcript && (
               <Button
                 onClick={transcribeAudio}
@@ -186,7 +188,7 @@ export default function ReviewPage() {
           <Button
             onClick={handleSubmit}
             disabled={submitting || !transcript}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
           >
             {submitting ? "Saving..." : "Submit"}
           </Button>

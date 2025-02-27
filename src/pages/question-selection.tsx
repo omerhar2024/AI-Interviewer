@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { useQuestions } from "@/lib/hooks/use-questions";
+import { useSubscription, useUsageStats } from "@/lib/hooks/use-subscription";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,56 +20,28 @@ type Question = {
 };
 
 export default function QuestionSelectionPage() {
-  const [loading, setLoading] = useState(true);
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [usageCount, setUsageCount] = useState(0);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { data: questions = [], isLoading: questionsLoading } = useQuestions();
+  const { data: subscription } = useSubscription();
+  const { data: usageStats, isLoading: statsLoading } = useUsageStats();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch questions
-        const { data: questionsData, error: questionsError } = await supabase
-          .from("questions")
-          .select("*");
+  const loading = questionsLoading || statsLoading;
+  const usageCount = usageStats?.used || 0;
 
-        if (questionsError) throw questionsError;
-        setQuestions(questionsData || []);
-
-        // Fetch usage count
-        const { count, error: countError } = await supabase
-          .from("responses")
-          .select("*", { count: "exact" })
-          .eq("user_id", user?.id)
-          .gte(
-            "created_at",
-            new Date(
-              new Date().setMonth(new Date().getMonth() - 1),
-            ).toISOString(),
-          );
-
-        if (countError) throw countError;
-        setUsageCount(count || 0);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user) fetchData();
-  }, [user]);
-
+  // For admin user (omerhar2024@gmail.com), show all questions regardless of type
+  // For regular users, filter based on subscription status
+  const isAdmin = user?.email === "omerhar2024@gmail.com";
   const productQuestions = questions.filter((q) => q.type === "product_sense");
   const behavioralQuestions = questions.filter((q) => q.type === "behavioral");
 
   const handleSelectQuestion = (questionId: string, type: string) => {
-    // Temporarily disabled for development
-    // if (usageCount >= 3) {
-    //   navigate("/subscription");
-    //   return;
-    // }
+    // Admin users (omerhar2024@gmail.com) bypass usage limits
+    // Check if user has reached the free tier limit (10 questions)
+    if (!isAdmin && usageCount >= 10 && subscription?.plan_type !== "pro") {
+      navigate("/subscription");
+      return;
+    }
     // For behavioral questions, skip preparation and go straight to recording
     // For product sense questions, go to preparation first
     const nextRoute = type === "behavioral" ? "recording" : "preparation";
@@ -84,14 +57,29 @@ export default function QuestionSelectionPage() {
   }
 
   return (
-    <div className="container py-16">
+    <div className="w-full p-6 mx-auto max-w-7xl">
       <h1 className="text-4xl font-bold mb-8">Select a Question</h1>
 
-      {usageCount >= 3 && (
+      {!isAdmin && usageCount >= 10 && subscription?.plan_type !== "pro" && (
         <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-8">
           <p className="text-yellow-700">
-            You have reached your monthly limit. Please upgrade to continue
-            practicing.
+            You have reached your free tier limit of 10 questions. Please
+            upgrade to continue practicing.
+          </p>
+          <Button
+            onClick={() => navigate("/subscription")}
+            className="mt-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
+          >
+            Upgrade Now
+          </Button>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="bg-blue-100 border-l-4 border-blue-500 p-4 mb-8">
+          <p className="text-blue-700">
+            Admin access enabled. You have access to all features and question
+            types.
           </p>
         </div>
       )}
@@ -120,7 +108,7 @@ export default function QuestionSelectionPage() {
                     onClick={() =>
                       handleSelectQuestion(question.id, "product_sense")
                     }
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
                   >
                     Select
                   </Button>
@@ -153,7 +141,7 @@ export default function QuestionSelectionPage() {
                     onClick={() =>
                       handleSelectQuestion(question.id, "behavioral")
                     }
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
                   >
                     Select
                   </Button>

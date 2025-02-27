@@ -1,63 +1,21 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/auth";
+import { useSubscription, useUsageStats } from "@/lib/hooks/use-subscription";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { stripe } from "@/lib/stripe";
 import { createCheckoutSession, createPortalSession } from "@/lib/api";
 
 export default function SubscriptionPage() {
-  const [loading, setLoading] = useState(true);
-  const [subscription, setSubscription] = useState<any>(null);
-  const [usageStats, setUsageStats] = useState({ used: 0, total: 3 });
   const { user } = useAuth();
   const { toast } = useToast();
+  const { data: subscription, isLoading: subscriptionLoading } =
+    useSubscription();
+  const { data: usageStats, isLoading: statsLoading } = useUsageStats();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch subscription
-        const { data: subData, error: subError } = await supabase
-          .from("subscriptions")
-          .select("*")
-          .eq("user_id", user?.id)
-          .single();
-
-        if (subError && subError.code !== "PGRST116") throw subError;
-        setSubscription(subData);
-
-        // Fetch usage stats
-        const { data: responseCount, error: countError } = await supabase
-          .from("responses")
-          .select("id", { count: "exact" })
-          .eq("user_id", user?.id)
-          .gte(
-            "created_at",
-            new Date(
-              new Date().setMonth(new Date().getMonth() - 1),
-            ).toISOString(),
-          );
-
-        if (countError) throw countError;
-        setUsageStats({
-          used: responseCount?.length || 0,
-          total: subData?.plan_type === "pro" ? Infinity : 3,
-        });
-      } catch (error) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to load subscription data. Please try again.",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user) fetchData();
-  }, [user, toast]);
+  const loading = subscriptionLoading || statsLoading;
 
   const handleManageSubscription = async () => {
     try {
@@ -81,7 +39,7 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <div className="container py-16">
+    <div className="w-full p-6 mx-auto max-w-7xl">
       <h1 className="text-4xl font-bold mb-8">Subscription</h1>
 
       <Tabs defaultValue="plans" className="w-full">
@@ -93,7 +51,7 @@ export default function SubscriptionPage() {
 
         <TabsContent value="usage" className="space-y-4">
           <div className="p-6 rounded-lg border bg-card">
-            <h3 className="text-xl font-semibold mb-4">Monthly Usage</h3>
+            <h3 className="text-xl font-semibold mb-4">Usage</h3>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>
@@ -125,6 +83,14 @@ export default function SubscriptionPage() {
                     100,
                 )}
               />
+              {subscription?.end_date && (
+                <div className="mt-4 text-sm text-muted-foreground">
+                  <p>
+                    Plan ends:{" "}
+                    {new Date(subscription.end_date).toLocaleDateString()}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </TabsContent>
@@ -133,19 +99,58 @@ export default function SubscriptionPage() {
           <div className="p-6 rounded-lg border bg-card">
             <h3 className="text-xl font-semibold mb-4">Billing Management</h3>
             <div className="space-y-4">
-              <p className="text-muted-foreground">
-                Current Plan:{" "}
-                {subscription?.plan_type === "pro" ? "Pro" : "Free"}
-              </p>
-              <Button onClick={handleManageSubscription}>Manage Billing</Button>
+              <div className="flex flex-col gap-2">
+                <p className="font-medium">
+                  Current Plan:{" "}
+                  <span className="font-bold text-primary">
+                    {subscription?.plan_type === "pro" ? "Pro" : "Free"}
+                  </span>
+                </p>
+                {subscription?.plan_type === "pro" &&
+                  subscription?.end_date && (
+                    <p className="text-sm text-muted-foreground">
+                      Your subscription renews on{" "}
+                      {new Date(subscription.end_date).toLocaleDateString()}
+                    </p>
+                  )}
+              </div>
+              <div className="flex gap-4">
+                {subscription?.plan_type === "pro" ? (
+                  <Button onClick={handleManageSubscription}>
+                    Manage Billing
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={async () => {
+                      try {
+                        const sessionId =
+                          await createCheckoutSession("price_H5ggYwtDq123");
+                        const stripeInstance = await stripe;
+                        if (stripeInstance) {
+                          await stripeInstance.redirectToCheckout({
+                            sessionId,
+                          });
+                        }
+                      } catch (error) {
+                        toast({
+                          variant: "destructive",
+                          title: "Error",
+                          description:
+                            "Failed to start checkout. Please try again.",
+                        });
+                      }
+                    }}
+                    className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
+                  >
+                    Upgrade to Pro
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </TabsContent>
 
-        <TabsContent
-          value="plans"
-          className="grid gap-8 md:grid-cols-2 lg:grid-cols-3"
-        >
+        <TabsContent value="plans" className="grid gap-8 md:grid-cols-2">
           {/* Free Plan */}
           <div className="rounded-lg border bg-card p-8">
             <h3 className="text-2xl font-semibold mb-2">Free Plan</h3>
@@ -153,7 +158,7 @@ export default function SubscriptionPage() {
               Get started with basic features
             </p>
             <ul className="space-y-2 mb-8">
-              <li>✓ 3 practice questions per month</li>
+              <li>✓ 10 practice questions total</li>
               <li>✓ Basic feedback</li>
               <li>✓ Community support</li>
             </ul>
@@ -184,7 +189,7 @@ export default function SubscriptionPage() {
               <li>✓ Progress tracking</li>
             </ul>
             <Button
-              className="w-full"
+              className="w-full bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
               disabled={subscription?.plan_type === "pro"}
               onClick={async () => {
                 try {
@@ -206,23 +211,6 @@ export default function SubscriptionPage() {
               {subscription?.plan_type === "pro"
                 ? "Manage Subscription"
                 : "Upgrade to Pro - $29/mo"}
-            </Button>
-          </div>
-
-          {/* Enterprise Plan */}
-          <div className="rounded-lg border bg-card p-8">
-            <h3 className="text-2xl font-semibold mb-2">Enterprise</h3>
-            <p className="text-muted-foreground mb-4">
-              For teams and organizations
-            </p>
-            <ul className="space-y-2 mb-8">
-              <li>✓ All Pro features</li>
-              <li>✓ Team management</li>
-              <li>✓ Custom questions</li>
-              <li>✓ Dedicated support</li>
-            </ul>
-            <Button className="w-full" variant="outline">
-              Contact Sales
             </Button>
           </div>
         </TabsContent>

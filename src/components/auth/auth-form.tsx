@@ -105,7 +105,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={loading}>
+        <Button
+          type="submit"
+          className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white font-medium px-8 py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
+          disabled={loading}
+        >
           {loading ? (
             <>
               <span className="loading loading-spinner"></span>

@@ -36,4 +36,12 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       eventsPerSecond: 10,
     },
   },
+  db: {
+    schema: "public",
+  },
+  global: {
+    headers: {
+      "Cache-Control": "max-age=300, s-maxage=600",
+    },
+  },
 });
