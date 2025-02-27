@@ -1,9 +1,8 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LineChart, BarChart, Activity, Calendar, Users } from "lucide-react";
+import { LineChart, Activity, Calendar, Users } from "lucide-react";
 
 interface MainContentProps {
   metrics?: {
@@ -49,38 +48,38 @@ const MainContent = ({
   ],
 }: MainContentProps) => {
   return (
-    <div className="h-full w-full bg-background p-6">
+    <div className="h-full w-full p-6">
       <div className="grid gap-6">
         {/* Metrics Grid */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
+          <Card className="bg-gradient-to-b from-white to-gray-50/50 hover:shadow-lg transition-all duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <Users className="h-4 w-4 text-violet-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{metrics.totalUsers}</div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-gradient-to-b from-white to-gray-50/50 hover:shadow-lg transition-all duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Active Users
               </CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
+              <Activity className="h-4 w-4 text-violet-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{metrics.activeUsers}</div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-gradient-to-b from-white to-gray-50/50 hover:shadow-lg transition-all duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Engagement Rate
               </CardTitle>
-              <LineChart className="h-4 w-4 text-muted-foreground" />
+              <LineChart className="h-4 w-4 text-violet-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -89,12 +88,12 @@ const MainContent = ({
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-gradient-to-b from-white to-gray-50/50 hover:shadow-lg transition-all duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Avg. Session Time
               </CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Calendar className="h-4 w-4 text-violet-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -107,20 +106,20 @@ const MainContent = ({
         {/* Charts and Activity Section */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-7">
           {/* Charts */}
-          <Card className="col-span-1 lg:col-span-5">
+          <Card className="col-span-1 lg:col-span-5 bg-gradient-to-b from-white to-gray-50/50 hover:shadow-lg transition-all duration-200">
             <CardHeader>
               <CardTitle>Analytics Overview</CardTitle>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="overview">
-                <TabsList>
+              <Tabs defaultValue="overview" className="w-full">
+                <TabsList className="w-full justify-start">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="analytics">Analytics</TabsTrigger>
                   <TabsTrigger value="reports">Reports</TabsTrigger>
                 </TabsList>
                 <TabsContent
                   value="overview"
-                  className="h-[300px] flex items-center justify-center border rounded-md"
+                  className="h-[300px] flex items-center justify-center border rounded-xl bg-white/50"
                 >
                   <div className="text-muted-foreground">
                     Overview Chart Placeholder
@@ -128,7 +127,7 @@ const MainContent = ({
                 </TabsContent>
                 <TabsContent
                   value="analytics"
-                  className="h-[300px] flex items-center justify-center border rounded-md"
+                  className="h-[300px] flex items-center justify-center border rounded-xl bg-white/50"
                 >
                   <div className="text-muted-foreground">
                     Analytics Chart Placeholder
@@ -136,7 +135,7 @@ const MainContent = ({
                 </TabsContent>
                 <TabsContent
                   value="reports"
-                  className="h-[300px] flex items-center justify-center border rounded-md"
+                  className="h-[300px] flex items-center justify-center border rounded-xl bg-white/50"
                 >
                   <div className="text-muted-foreground">
                     Reports Chart Placeholder
@@ -147,17 +146,17 @@ const MainContent = ({
           </Card>
 
           {/* Activity Feed */}
-          <Card className="col-span-1 lg:col-span-2">
+          <Card className="col-span-1 lg:col-span-2 bg-gradient-to-b from-white to-gray-50/50 hover:shadow-lg transition-all duration-200">
             <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[400px] w-full">
+              <ScrollArea className="h-[400px] w-full pr-4">
                 <div className="space-y-4">
                   {activities.map((activity) => (
                     <div
                       key={activity.id}
-                      className="flex items-center space-x-4 rounded-md border p-3"
+                      className="flex items-center space-x-4 rounded-xl border p-4 bg-white/50 hover:shadow-sm transition-all duration-200"
                     >
                       <div className="flex-1 space-y-1">
                         <p className="text-sm font-medium">{activity.title}</p>

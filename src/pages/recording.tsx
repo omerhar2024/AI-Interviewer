@@ -223,11 +223,11 @@ Result
 The outcome was a success. We delivered the project on schedule, meeting the critical market deadline with the essential features in place. The stakeholder was pleased with the result and appreciated the plan for incorporating his additional changes in a subsequent update. This not only maintained a positive relationship but also boosted team morale, as they saw their efforts recognized. Reflecting on this, I learned the value of clear communication and adaptable planning when navigating challenging stakeholder dynamics.`;
 
   return (
-    <div className="container py-16">
+    <div className="w-full p-6 mx-auto max-w-7xl">
       <div className="space-y-8">
-        <Card className="p-6">
+        <Card className="p-6 bg-gradient-to-br from-blue-50 to-white rounded-xl shadow-lg border border-blue-100">
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Question</h2>
+            <h2 className="text-xl font-semibold text-blue-800">Question</h2>
             <p className="text-lg text-muted-foreground">
               {question?.text || "Loading question..."}
             </p>
@@ -235,21 +235,25 @@ The outcome was a success. We delivered the project on schedule, meeting the cri
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-          <Card className="p-6">
+          <Card className="p-6 bg-gradient-to-br from-blue-50 to-white rounded-xl shadow-lg border border-blue-100">
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-semibold">Sample Response</h2>
+                <h2 className="text-xl font-semibold text-blue-800">
+                  Sample Response
+                </h2>
               </div>
-              <div className="bg-muted p-4 rounded-md">
+              <div className="bg-white p-4 rounded-md border border-blue-100">
                 <FormattedText text={sampleResponse} />
               </div>
             </div>
           </Card>
 
-          <Card className="p-6">
+          <Card className="p-6 bg-gradient-to-br from-blue-50 to-white rounded-xl shadow-lg border border-blue-100">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">STAR Response</h2>
+                <h2 className="text-xl font-semibold text-blue-800">
+                  STAR Response
+                </h2>
                 <div className="flex items-center gap-4">
                   <div className="text-sm font-mono text-muted-foreground">
                     {formatTime(duration)}
@@ -279,7 +283,7 @@ The outcome was a success. We delivered the project on schedule, meeting the cri
               <Button
                 onClick={handleAnalyzeResponse}
                 disabled={analyzing || !question}
-                className="w-full bg-green-600 hover:bg-green-700"
+                className="w-full bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
               >
                 {analyzing ? (
                   <>

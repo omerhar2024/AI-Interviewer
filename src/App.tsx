@@ -1,9 +1,10 @@
-import { Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Suspense, lazy } from "react";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { Navbar } from "@/components/layout/navbar";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AuthProvider } from "@/lib/auth";
 import { Toaster } from "@/components/ui/toaster";
+import AppLayout from "@/components/layout/AppLayout";
 import Home from "@/components/home";
 import LoginPage from "@/pages/login";
 import SignupPage from "@/pages/signup";
@@ -17,11 +18,33 @@ import SubscriptionPage from "@/pages/subscription";
 import AuthCallback from "@/pages/auth/callback";
 import ChatPage from "@/pages/chat";
 import AnalysisPage from "@/pages/analysis";
+import ProgressPage from "@/pages/progress";
 
-export default function App() {
+// Lazy load admin pages
+const AdminDashboard = lazy(() => import("@/pages/admin"));
+const AdminUsersPage = lazy(() => import("@/pages/admin/users"));
+const AdminAnalyticsPage = lazy(() => import("@/pages/admin/analytics"));
+const AdminContentPage = lazy(() => import("@/pages/admin/content"));
+
+function AppContent() {
+  const location = useLocation();
+  const isDashboardRoute =
+    location.pathname.startsWith("/dashboard") ||
+    location.pathname.startsWith("/practice") ||
+    location.pathname.startsWith("/preparation") ||
+    location.pathname.startsWith("/recording") ||
+    location.pathname.startsWith("/review") ||
+    location.pathname.startsWith("/analysis") ||
+    location.pathname.startsWith("/profile") ||
+    location.pathname.startsWith("/progress") ||
+    location.pathname.startsWith("/subscription");
+
+  // Only show navbar on non-dashboard routes
+  const showMainNavbar = !isDashboardRoute;
+
   return (
-    <AuthProvider>
-      <Navbar />
+    <>
+      {showMainNavbar && <Navbar />}
       <Suspense
         fallback={
           <div className="flex items-center justify-center h-screen">
@@ -41,7 +64,9 @@ export default function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <DashboardPage />
+                <AppLayout>
+                  <DashboardPage />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
@@ -49,7 +74,9 @@ export default function App() {
             path="/practice"
             element={
               <ProtectedRoute>
-                <QuestionSelectionPage />
+                <AppLayout>
+                  <QuestionSelectionPage />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
@@ -57,7 +84,9 @@ export default function App() {
             path="/preparation/:questionId"
             element={
               <ProtectedRoute>
-                <PreparationPage />
+                <AppLayout>
+                  <PreparationPage />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
@@ -65,7 +94,9 @@ export default function App() {
             path="/recording/:questionId"
             element={
               <ProtectedRoute>
-                <RecordingPage />
+                <AppLayout>
+                  <RecordingPage />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
@@ -73,7 +104,9 @@ export default function App() {
             path="/review/:questionId"
             element={
               <ProtectedRoute>
-                <ReviewPage />
+                <AppLayout>
+                  <ReviewPage />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
@@ -81,7 +114,9 @@ export default function App() {
             path="/analysis/:responseId"
             element={
               <ProtectedRoute>
-                <AnalysisPage />
+                <AppLayout>
+                  <AnalysisPage />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
@@ -89,7 +124,9 @@ export default function App() {
             path="/profile"
             element={
               <ProtectedRoute>
-                <ProfilePage />
+                <AppLayout>
+                  <ProfilePage />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
@@ -97,13 +134,75 @@ export default function App() {
             path="/subscription"
             element={
               <ProtectedRoute>
-                <SubscriptionPage />
+                <AppLayout>
+                  <SubscriptionPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/progress"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ProgressPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin Routes */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <AdminDashboard />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <AdminUsersPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/analytics"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <AdminAnalyticsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/content"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <AdminContentPage />
+                </AppLayout>
               </ProtectedRoute>
             }
           />
         </Routes>
       </Suspense>
       <Toaster />
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
     </AuthProvider>
   );
 }
