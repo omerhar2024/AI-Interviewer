@@ -7,34 +7,28 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
+import { FrameworkSelector } from "@/components/product-sense/FrameworkSelector";
 
 const sections = [
   {
-    id: "comprehend",
-    title: "Comprehend",
-    description: "Clarify the problem and understand the context",
+    id: "situation",
+    title: "Situation",
+    description: "Describe the context and background",
   },
   {
-    id: "identify",
-    title: "Identify",
-    description: "Who are the users and what are their needs?",
+    id: "task",
+    title: "Task",
+    description: "What was your responsibility in this situation?",
   },
   {
-    id: "report",
-    title: "Report",
-    description: "What metrics will measure success?",
-  },
-  { id: "cut", title: "Cut", description: "Prioritize and focus on key areas" },
-  { id: "list", title: "List", description: "Generate potential solutions" },
-  {
-    id: "evaluate",
-    title: "Evaluate",
-    description: "Analyze trade-offs and pick the best solution",
+    id: "action",
+    title: "Action",
+    description: "What specific steps did you take?",
   },
   {
-    id: "summarize",
-    title: "Summarize",
-    description: "Recap your recommendation",
+    id: "result",
+    title: "Result",
+    description: "What was the outcome of your actions?",
   },
 ];
 
@@ -84,7 +78,7 @@ export default function PreparationPage() {
 
       if (error) throw error;
 
-      navigate(`/recording/${questionId}`);
+      navigate(`/behavioral-recording/${questionId}`);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -96,11 +90,49 @@ export default function PreparationPage() {
     }
   };
 
-  const progress = Math.round(
-    (Object.values(notes).filter((note) => note?.trim().length > 0).length /
-      sections.length) *
-      100,
-  );
+  const handleProductSenseSubmit = async (
+    framework: string,
+    responses: Record<string, string>,
+  ) => {
+    try {
+      setSaving(true);
+      // Store the framework information in a session variable to ensure it's available later
+      sessionStorage.setItem("selectedFramework", framework);
+
+      const { error } = await supabase.from("responses").insert({
+        user_id: user?.id,
+        question_id: questionId,
+        notes: { framework, ...responses },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description:
+          "Framework notes saved. You can now record your response using the recording button.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save framework responses. Please try again.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Calculate progress only for behavioral questions using STAR
+  const progress =
+    question?.type === "behavioral"
+      ? Math.round(
+          (Object.values(notes).filter((note) => note?.trim().length > 0)
+            .length /
+            sections.length) *
+            100,
+        )
+      : 0;
 
   if (loading) {
     return (
@@ -110,11 +142,30 @@ export default function PreparationPage() {
     );
   }
 
+  // For product sense questions, show framework selector
+  if (question?.type === "product_sense") {
+    return (
+      <div className="w-full p-6 mx-auto max-w-7xl">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2">Product Sense Preparation</h1>
+          <p className="text-muted-foreground">{question?.text}</p>
+        </div>
+
+        <FrameworkSelector
+          questionText={question?.text}
+          questionId={questionId || ""}
+          onSubmit={handleProductSenseSubmit}
+        />
+      </div>
+    );
+  }
+
+  // For behavioral questions, show STAR framework
   return (
     <div className="w-full p-6 mx-auto max-w-7xl">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-4xl font-bold mb-2">Preparation</h1>
+          <h1 className="text-4xl font-bold mb-2">STAR Preparation</h1>
           <p className="text-muted-foreground">{question?.text}</p>
         </div>
         <div className="text-right">

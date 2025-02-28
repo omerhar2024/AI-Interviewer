@@ -16,7 +16,7 @@ declare global {
   }
 }
 
-export default function RecordingPage() {
+export default function BehavioralRecordingPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [question, setQuestion] = useState<any>(null);
   const [duration, setDuration] = useState(0);
@@ -189,68 +189,21 @@ export default function RecordingPage() {
 
         // Update usage stats by incrementing the count
         if (user) {
-          const { error: usageError } = await supabase.rpc(
-            "increment_usage_count",
-            { p_user_id: user.id },
-          );
-          if (usageError)
-            console.error("Error updating usage stats:", usageError);
+          try {
+            const { error: usageError } = await supabase.rpc(
+              "increment_usage_count",
+              { p_user_id: user.id },
+            );
+            if (usageError)
+              console.error("Error updating usage stats:", usageError);
+          } catch (err) {
+            console.error("Failed to update usage stats:", err);
+            // Continue with the flow even if usage stats update fails
+          }
         }
 
-        // Navigate to the appropriate analysis page based on question type and framework
-        if (question?.type === "product_sense") {
-          // First check if we have the framework in sessionStorage (from preparation page)
-          let framework = sessionStorage.getItem("selectedFramework");
-
-          // If not in sessionStorage, try to get it from the database
-          if (!framework) {
-            const { data: prepData, error: prepError } = await supabase
-              .from("responses")
-              .select("notes")
-              .eq("user_id", user?.id)
-              .eq("question_id", questionId)
-              .order("created_at", { ascending: false })
-              .limit(5); // Increased limit to find framework info
-
-            // Look for the preparation response that contains framework info
-            if (!prepError && prepData && prepData.length > 0) {
-              for (const prep of prepData) {
-                if (prep.notes && prep.notes.framework) {
-                  framework = prep.notes.framework;
-                  break;
-                }
-              }
-            }
-          }
-
-          console.log("Selected framework:", framework);
-
-          // Route based on the framework
-          if (framework) {
-            switch (framework) {
-              case "circles":
-                navigate(`/circles-analysis/${responseData.id}`);
-                break;
-              case "design-thinking":
-                navigate(`/design-thinking-analysis/${responseData.id}`);
-                break;
-              case "jtbd":
-                navigate(`/jtbd-analysis/${responseData.id}`);
-                break;
-              case "user-centric":
-                navigate(`/user-centric-analysis/${responseData.id}`);
-                break;
-              default:
-                navigate(`/product-sense-analysis/${responseData.id}`);
-            }
-          } else {
-            // Default to product sense analysis if no framework is found
-            navigate(`/product-sense-analysis/${responseData.id}`);
-          }
-        } else {
-          // For behavioral questions, go to the standard analysis page
-          navigate(`/analysis/${responseData.id}`);
-        }
+        // Navigate to the behavioral analysis page
+        navigate(`/analysis/${responseData.id}`);
       }
     } catch (error) {
       console.error("Analysis error:", error);

@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { FormattedText } from "@/components/ui/formatted-text";
 import { ArrowLeft, ThumbsUp, ThumbsDown, Star } from "lucide-react";
 
-export default function AnalysisPage() {
+export default function ProductSenseAnalysisPage() {
   const { responseId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -102,14 +102,14 @@ export default function AnalysisPage() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Dashboard
         </Button>
-        <h1 className="text-4xl font-bold">STAR Analysis</h1>
+        <h1 className="text-4xl font-bold">Product Sense Analysis</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Question and Response Section */}
         <div className="space-y-6">
-          <Card className="p-6 bg-gradient-to-br from-purple-50 to-white rounded-xl shadow-lg border border-purple-100">
-            <h2 className="text-xl font-semibold text-purple-800 mb-4">
+          <Card className="p-6 bg-gradient-to-br from-gray-50 to-white rounded-xl shadow-lg border border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">
               Question
             </h2>
             <p className="text-lg text-gray-700">{question?.text}</p>
@@ -129,10 +129,10 @@ export default function AnalysisPage() {
 
         {/* Analysis Section */}
         <div className="space-y-6">
-          <Card className="p-6 bg-gradient-to-br from-purple-50 to-white rounded-xl shadow-lg border border-purple-100">
+          <Card className="p-6 bg-gradient-to-br from-gray-50 to-white rounded-xl shadow-lg border border-gray-200">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-purple-800">
-                STAR Analysis
+              <h2 className="text-xl font-semibold text-gray-800">
+                Product Sense Analysis
               </h2>
               <div className="flex items-center gap-2">
                 <div className="flex items-center">
@@ -143,13 +143,13 @@ export default function AnalysisPage() {
                     />
                   ))}
                 </div>
-                <span className="text-lg font-bold text-purple-800">
+                <span className="text-lg font-bold text-gray-800">
                   {feedback?.score?.toFixed(1) || "N/A"}/10
                 </span>
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-md border border-purple-100 whitespace-pre-line overflow-auto max-h-[600px]">
+            <div className="bg-white p-4 rounded-md border border-gray-100 whitespace-pre-line overflow-auto max-h-[600px]">
               {feedback?.text || "No analysis available yet."}
             </div>
 

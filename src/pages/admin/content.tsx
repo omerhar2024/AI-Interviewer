@@ -29,7 +29,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Search, Plus, Edit, Trash } from "lucide-react";
+import {
+  ArrowLeft,
+  Search,
+  Plus,
+  Edit,
+  Trash,
+  Filter,
+  ArrowUpDown,
+} from "lucide-react";
 
 export default function AdminContentPage() {
   const navigate = useNavigate();
@@ -44,20 +52,33 @@ export default function AdminContentPage() {
     text: "",
     type: "behavioral",
     sampleResponse: "",
-    difficulty: "medium",
+  });
+  const [filters, setFilters] = useState({
+    type: "all",
+    sortBy: "created_at",
+    sortOrder: "desc" as "asc" | "desc",
   });
 
   useEffect(() => {
     fetchQuestions();
-  }, []);
+  }, [filters]);
 
   const fetchQuestions = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("questions")
-        .select("*")
-        .order("created_at", { ascending: false });
+      let query = supabase.from("questions").select("*");
+
+      // Apply type filter
+      if (filters.type !== "all") {
+        query = query.eq("type", filters.type);
+      }
+
+      // Apply sorting
+      query = query.order(filters.sortBy, {
+        ascending: filters.sortOrder === "asc",
+      });
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setQuestions(data || []);
@@ -75,14 +96,25 @@ export default function AdminContentPage() {
 
   const handleAddQuestion = async () => {
     try {
-      const { error } = await supabase.from("questions").insert([
-        {
-          text: formData.text,
-          type: formData.type,
-          sample_response: formData.sampleResponse,
-          difficulty: formData.difficulty,
-        },
-      ]);
+      if (!formData.text.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Question text is required.",
+        });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("questions")
+        .insert([
+          {
+            text: formData.text,
+            type: formData.type,
+            sample_response: formData.sampleResponse,
+          },
+        ])
+        .select();
 
       if (error) throw error;
 
@@ -106,15 +138,24 @@ export default function AdminContentPage() {
 
   const handleEditQuestion = async () => {
     try {
-      const { error } = await supabase
+      if (!formData.text.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Question text is required.",
+        });
+        return;
+      }
+
+      const { data, error } = await supabase
         .from("questions")
         .update({
           text: formData.text,
           type: formData.type,
           sample_response: formData.sampleResponse,
-          difficulty: formData.difficulty,
         })
-        .eq("id", currentQuestion.id);
+        .eq("id", currentQuestion.id)
+        .select();
 
       if (error) throw error;
 
@@ -140,6 +181,22 @@ export default function AdminContentPage() {
     if (!confirm("Are you sure you want to delete this question?")) return;
 
     try {
+      // First check if the question exists
+      const { data: checkData, error: checkError } = await supabase
+        .from("questions")
+        .select("id")
+        .eq("id", id)
+        .single();
+
+      if (checkError) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Question not found.",
+        });
+        return;
+      }
+
       const { error } = await supabase.from("questions").delete().eq("id", id);
 
       if (error) throw error;
@@ -165,7 +222,6 @@ export default function AdminContentPage() {
       text: "",
       type: "behavioral",
       sampleResponse: "",
-      difficulty: "medium",
     });
     setCurrentQuestion(null);
   };
@@ -176,9 +232,23 @@ export default function AdminContentPage() {
       text: question.text,
       type: question.type,
       sampleResponse: question.sample_response || "",
-      difficulty: question.difficulty || "medium",
     });
     setIsEditDialogOpen(true);
+  };
+
+  const toggleSortOrder = (field: string) => {
+    if (filters.sortBy === field) {
+      setFilters({
+        ...filters,
+        sortOrder: filters.sortOrder === "asc" ? "desc" : "asc",
+      });
+    } else {
+      setFilters({
+        ...filters,
+        sortBy: field,
+        sortOrder: "desc",
+      });
+    }
   };
 
   const filteredQuestions = questions.filter((question) =>
@@ -209,14 +279,36 @@ export default function AdminContentPage() {
 
       <div className="bg-gradient-to-br from-blue-50 to-white rounded-xl shadow-lg border border-blue-100 p-6 mb-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-          <div className="relative w-full md:w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search questions..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+          <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+            <div className="relative w-full md:w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search questions..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select
+                value={filters.type}
+                onValueChange={(value) =>
+                  setFilters({ ...filters, type: value })
+                }
+              >
+                <SelectTrigger className="w-[150px]">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4" />
+                    <span>Type</span>
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="behavioral">Behavioral</SelectItem>
+                  <SelectItem value="product_sense">Product Sense</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -249,24 +341,6 @@ export default function AdminContentPage() {
                       <SelectItem value="product_sense">
                         Product Sense
                       </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <label className="text-right">Difficulty</label>
-                  <Select
-                    value={formData.difficulty}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, difficulty: value })
-                    }
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select difficulty" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="easy">Easy</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="hard">Hard</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -308,7 +382,6 @@ export default function AdminContentPage() {
                 </Button>
                 <Button
                   onClick={handleAddQuestion}
-                  disabled={!formData.text.trim()}
                   className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
                 >
                   Add Question
@@ -342,24 +415,6 @@ export default function AdminContentPage() {
                       <SelectItem value="product_sense">
                         Product Sense
                       </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <label className="text-right">Difficulty</label>
-                  <Select
-                    value={formData.difficulty}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, difficulty: value })
-                    }
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select difficulty" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="easy">Easy</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="hard">Hard</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -401,7 +456,6 @@ export default function AdminContentPage() {
                 </Button>
                 <Button
                   onClick={handleEditQuestion}
-                  disabled={!formData.text.trim()}
                   className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
                 >
                   Update Question
@@ -415,10 +469,42 @@ export default function AdminContentPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Question</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Difficulty</TableHead>
-                <TableHead>Created At</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => toggleSortOrder("text")}
+                    className="flex items-center gap-1 p-0 h-auto font-semibold"
+                  >
+                    Question
+                    {filters.sortBy === "text" && (
+                      <ArrowUpDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => toggleSortOrder("type")}
+                    className="flex items-center gap-1 p-0 h-auto font-semibold"
+                  >
+                    Type
+                    {filters.sortBy === "type" && (
+                      <ArrowUpDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => toggleSortOrder("created_at")}
+                    className="flex items-center gap-1 p-0 h-auto font-semibold"
+                  >
+                    Created At
+                    {filters.sortBy === "created_at" && (
+                      <ArrowUpDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -436,13 +522,6 @@ export default function AdminContentPage() {
                         {question.type === "product_sense"
                           ? "Product Sense"
                           : "Behavioral"}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${question.difficulty === "easy" ? "bg-green-100 text-green-800" : question.difficulty === "medium" ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800"}`}
-                      >
-                        {question.difficulty || "Medium"}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -471,7 +550,7 @@ export default function AdminContentPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-4">
+                  <TableCell colSpan={4} className="text-center py-4">
                     No questions found
                   </TableCell>
                 </TableRow>

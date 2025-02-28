@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
-import { useQuestions } from "@/lib/hooks/use-questions";
+import { useQuestions, QuestionFilters } from "@/lib/hooks/use-questions";
 import { useSubscription, useUsageStats } from "@/lib/hooks/use-subscription";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,18 +11,48 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Brain, MessageSquare } from "lucide-react";
+import { Brain, MessageSquare, ArrowUpDown } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Question = {
   id: string;
   text: string;
   type: "product_sense" | "behavioral";
+  difficulty: string;
 };
 
 export default function QuestionSelectionPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
-  const { data: questions = [], isLoading: questionsLoading } = useQuestions();
+
+  // Parse query parameters
+  const queryParams = new URLSearchParams(location.search);
+  const typeFromUrl = queryParams.get("type");
+
+  const [filters, setFilters] = useState<QuestionFilters>({
+    type: typeFromUrl || "all",
+    sortBy: "created_at",
+    sortOrder: "desc",
+  });
+
+  const {
+    data: questions = [],
+    isLoading: questionsLoading,
+    refetch: refetchQuestions,
+  } = useQuestions(filters);
+
+  // Ensure we have the latest questions when this page loads
+  useEffect(() => {
+    refetchQuestions();
+  }, [refetchQuestions, filters]);
+
   const { data: subscription } = useSubscription();
   const { data: usageStats, isLoading: statsLoading } = useUsageStats();
 
@@ -30,10 +60,7 @@ export default function QuestionSelectionPage() {
   const usageCount = usageStats?.used || 0;
 
   // For admin user (omerhar2024@gmail.com), show all questions regardless of type
-  // For regular users, filter based on subscription status
   const isAdmin = user?.email === "omerhar2024@gmail.com";
-  const productQuestions = questions.filter((q) => q.type === "product_sense");
-  const behavioralQuestions = questions.filter((q) => q.type === "behavioral");
 
   const handleSelectQuestion = (questionId: string, type: string) => {
     // Admin users (omerhar2024@gmail.com) bypass usage limits
@@ -42,9 +69,10 @@ export default function QuestionSelectionPage() {
       navigate("/subscription");
       return;
     }
-    // For behavioral questions, skip preparation and go straight to recording
+    // For behavioral questions, go to behavioral recording
     // For product sense questions, go to preparation first
-    const nextRoute = type === "behavioral" ? "recording" : "preparation";
+    const nextRoute =
+      type === "behavioral" ? "behavioral-recording" : "preparation";
     navigate(`/${nextRoute}/${questionId}`);
   };
 
@@ -58,7 +86,9 @@ export default function QuestionSelectionPage() {
 
   return (
     <div className="w-full p-6 mx-auto max-w-7xl">
-      <h1 className="text-4xl font-bold mb-8">Select a Question</h1>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <h1 className="text-4xl font-bold">Select a Question</h1>
+      </div>
 
       {!isAdmin && usageCount >= 10 && subscription?.plan_type !== "pro" && (
         <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-8">
@@ -84,29 +114,33 @@ export default function QuestionSelectionPage() {
         </div>
       )}
 
-      <div className="grid gap-8 md:grid-cols-2">
-        {/* Product Sense Section */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-blue-500" />
-              <CardTitle>Product Sense</CardTitle>
-            </div>
-            <CardDescription>
-              Test your product strategy and decision-making skills
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {productQuestions.slice(0, 3).map((question) => (
-              <div
-                key={question.id}
-                className="p-4 rounded-lg border bg-card hover:border-blue-500 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <p className="text-sm">{question.text}</p>
+      <div className="space-y-4">
+        {questions.map((question) => (
+          <Card
+            key={question.id}
+            className="hover:shadow-md transition-all duration-200"
+          >
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row justify-between gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    {question.type === "product_sense" ? (
+                      <Brain className="h-5 w-5 text-blue-500" />
+                    ) : (
+                      <MessageSquare className="h-5 w-5 text-blue-500" />
+                    )}
+                    <span className="font-medium">
+                      {question.type === "product_sense"
+                        ? "Product Sense"
+                        : "Behavioral"}
+                    </span>
+                  </div>
+                  <p className="text-lg font-medium">{question.text}</p>
+                </div>
+                <div className="flex-shrink-0">
                   <Button
                     onClick={() =>
-                      handleSelectQuestion(question.id, "product_sense")
+                      handleSelectQuestion(question.id, question.type)
                     }
                     className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
                   >
@@ -114,42 +148,17 @@ export default function QuestionSelectionPage() {
                   </Button>
                 </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
 
-        {/* Behavioral Section */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-blue-500" />
-              <CardTitle>Behavioral</CardTitle>
-            </div>
-            <CardDescription>
-              Practice answering common behavioral interview questions
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {behavioralQuestions.slice(0, 3).map((question) => (
-              <div
-                key={question.id}
-                className="p-4 rounded-lg border bg-card hover:border-blue-500 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <p className="text-sm">{question.text}</p>
-                  <Button
-                    onClick={() =>
-                      handleSelectQuestion(question.id, "behavioral")
-                    }
-                    className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
-                  >
-                    Select
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        {questions.length === 0 && (
+          <div className="text-center py-12 bg-gray-50 rounded-lg border">
+            <p className="text-lg text-muted-foreground">
+              No questions found matching your filters.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
