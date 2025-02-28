@@ -4,18 +4,35 @@ import type { Database } from "@/types/database";
 
 type Question = Database["public"]["Tables"]["questions"]["Row"];
 
-export function useQuestions() {
+export type QuestionFilters = {
+  type?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+};
+
+export function useQuestions(filters?: QuestionFilters) {
   return useQuery<Question[]>({
-    queryKey: ["questions"],
+    queryKey: ["questions", filters],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("questions")
-        .select("*")
-        .order("created_at", { ascending: false });
+      let query = supabase.from("questions").select("*");
+
+      // Apply type filter
+      if (filters?.type && filters.type !== "all") {
+        query = query.eq("type", filters.type);
+      }
+
+      // Apply sorting
+      const sortBy = filters?.sortBy || "created_at";
+      const sortOrder = filters?.sortOrder || "desc";
+      query = query.order(sortBy, { ascending: sortOrder === "asc" });
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data || [];
     },
+    refetchInterval: 10000, // Refetch every 10 seconds to ensure latest data
+    staleTime: 5000, // Consider data stale after 5 seconds
   });
 }
 

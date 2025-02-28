@@ -34,18 +34,21 @@ export interface Database {
           id: string;
           text: string;
           type: "product_sense" | "behavioral";
+          sample_response: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           text: string;
           type: "product_sense" | "behavioral";
+          sample_response?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           text?: string;
           type?: "product_sense" | "behavioral";
+          sample_response?: string | null;
           created_at?: string;
         };
       };

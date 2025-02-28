@@ -12,19 +12,29 @@ import DashboardPage from "@/pages/dashboard";
 import QuestionSelectionPage from "@/pages/question-selection";
 import PreparationPage from "@/pages/preparation";
 import RecordingPage from "@/pages/recording";
+import BehavioralRecordingPage from "@/pages/behavioral-recording";
+import ProductSenseRecordingPage from "@/pages/product-sense-recording";
 import ReviewPage from "@/pages/review";
 import ProfilePage from "@/pages/profile";
 import SubscriptionPage from "@/pages/subscription";
 import AuthCallback from "@/pages/auth/callback";
 import ChatPage from "@/pages/chat";
 import AnalysisPage from "@/pages/analysis";
+import ProductSenseAnalysisPage from "@/pages/product-sense-analysis";
+import CirclesAnalysisPage from "@/pages/circles-analysis";
+import DesignThinkingAnalysisPage from "@/pages/design-thinking-analysis";
+import JTBDAnalysisPage from "@/pages/jtbd-analysis";
+import UserCentricAnalysisPage from "@/pages/user-centric-analysis";
 import ProgressPage from "@/pages/progress";
+import TestOpenAIPage from "@/pages/test-openai";
+import TestDeepseekPage from "@/pages/test-deepseek";
 
 // Lazy load admin pages
 const AdminDashboard = lazy(() => import("@/pages/admin"));
 const AdminUsersPage = lazy(() => import("@/pages/admin/users"));
 const AdminAnalyticsPage = lazy(() => import("@/pages/admin/analytics"));
 const AdminContentPage = lazy(() => import("@/pages/admin/content"));
+const AdminApiSettingsPage = lazy(() => import("@/pages/admin/api-settings"));
 
 function AppContent() {
   const location = useLocation();
@@ -58,6 +68,8 @@ function AppContent() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/test-openai" element={<TestOpenAIPage />} />
+          <Route path="/test-deepseek" element={<TestDeepseekPage />} />
 
           {/* Protected Routes */}
           <Route
@@ -101,6 +113,26 @@ function AppContent() {
             }
           />
           <Route
+            path="/behavioral-recording/:questionId"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <BehavioralRecordingPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/product-sense-recording/:questionId"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ProductSenseRecordingPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/review/:questionId"
             element={
               <ProtectedRoute>
@@ -116,6 +148,56 @@ function AppContent() {
               <ProtectedRoute>
                 <AppLayout>
                   <AnalysisPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/product-sense-analysis/:responseId"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <ProductSenseAnalysisPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/circles-analysis/:responseId"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <CirclesAnalysisPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/design-thinking-analysis/:responseId"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <DesignThinkingAnalysisPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/jtbd-analysis/:responseId"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <JTBDAnalysisPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user-centric-analysis/:responseId"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <UserCentricAnalysisPage />
                 </AppLayout>
               </ProtectedRoute>
             }
@@ -188,6 +270,16 @@ function AppContent() {
               <ProtectedRoute>
                 <AppLayout>
                   <AdminContentPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/api-settings"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <AdminApiSettingsPage />
                 </AppLayout>
               </ProtectedRoute>
             }

@@ -1,39 +1,67 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
+import { useQuestions, QuestionFilters } from "@/lib/hooks/use-questions";
+import { useSubscription, useUsageStats } from "@/lib/hooks/use-subscription";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-import type { Database } from "@/types/database";
-
-type Question = Database["public"]["Tables"]["questions"]["Row"];
+import { Card, CardContent } from "@/components/ui/card";
+import { Brain, MessageSquare, ArrowUpDown } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function PracticePage() {
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
 
+  // Parse query parameters
+  const queryParams = new URLSearchParams(location.search);
+  const typeFromUrl = queryParams.get("type");
+
+  const [filters, setFilters] = useState<QuestionFilters>({
+    type: typeFromUrl || "all",
+    sortBy: "created_at",
+    sortOrder: "desc",
+  });
+
+  const {
+    data: questions = [],
+    isLoading: questionsLoading,
+    refetch: refetchQuestions,
+  } = useQuestions(filters);
+
+  // Ensure we have the latest questions when this page loads
   useEffect(() => {
-    const fetchQuestions = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("questions")
-          .select("*")
-          .order("created_at", { ascending: false });
+    refetchQuestions();
+  }, [refetchQuestions, filters]);
 
-        if (error) throw error;
-        setQuestions(data || []);
-      } catch (error) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to load questions. Please try again.",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data: subscription } = useSubscription();
+  const { data: usageStats, isLoading: statsLoading } = useUsageStats();
 
-    fetchQuestions();
-  }, [toast]);
+  const loading = questionsLoading || statsLoading;
+  const usageCount = usageStats?.used || 0;
+
+  // For admin user (omerhar2024@gmail.com), show all questions regardless of type
+  const isAdmin = user?.email === "omerhar2024@gmail.com";
+
+  const handleSelectQuestion = (questionId: string, type: string) => {
+    // Admin users (omerhar2024@gmail.com) bypass usage limits
+    // Check if user has reached the free tier limit (10 questions)
+    if (!isAdmin && usageCount >= 10 && subscription?.plan_type !== "pro") {
+      navigate("/subscription");
+      return;
+    }
+    // For behavioral questions, go to behavioral recording
+    // For product sense questions, go to preparation first
+    const nextRoute =
+      type === "behavioral" ? "behavioral-recording" : "preparation";
+    navigate(`/${nextRoute}/${questionId}`);
+  };
 
   if (loading) {
     return (
@@ -45,27 +73,79 @@ export default function PracticePage() {
 
   return (
     <div className="w-full p-6 mx-auto max-w-7xl">
-      <h1 className="text-4xl font-bold mb-8">Practice</h1>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <h1 className="text-4xl font-bold">Select a Question</h1>
+      </div>
 
-      <div className="grid gap-6">
-        {questions.map((question) => (
-          <div
-            key={question.id}
-            className="p-6 rounded-xl border bg-gradient-to-br from-blue-50 to-white shadow-lg hover:shadow-xl transition-all duration-200"
+      {!isAdmin && usageCount >= 10 && subscription?.plan_type !== "pro" && (
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-8">
+          <p className="text-yellow-700">
+            You have reached your free tier limit of 10 questions. Please
+            upgrade to continue practicing.
+          </p>
+          <Button
+            onClick={() => navigate("/subscription")}
+            className="mt-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
           >
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-semibold mb-2">{question.text}</h3>
-                <p className="text-sm text-muted-foreground">
-                  Type: {question.type}
-                </p>
+            Upgrade Now
+          </Button>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="bg-blue-100 border-l-4 border-blue-500 p-4 mb-8">
+          <p className="text-blue-700">
+            Admin access enabled. You have access to all features and question
+            types.
+          </p>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {questions.map((question) => (
+          <Card
+            key={question.id}
+            className="hover:shadow-md transition-all duration-200"
+          >
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row justify-between gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    {question.type === "product_sense" ? (
+                      <Brain className="h-5 w-5 text-blue-500" />
+                    ) : (
+                      <MessageSquare className="h-5 w-5 text-blue-500" />
+                    )}
+                    <span className="font-medium">
+                      {question.type === "product_sense"
+                        ? "Product Sense"
+                        : "Behavioral"}
+                    </span>
+                  </div>
+                  <p className="text-lg font-medium">{question.text}</p>
+                </div>
+                <div className="flex-shrink-0">
+                  <Button
+                    onClick={() =>
+                      handleSelectQuestion(question.id, question.type)
+                    }
+                    className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
+                  >
+                    Select
+                  </Button>
+                </div>
               </div>
-              <Button className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white">
-                Start Practice
-              </Button>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         ))}
+
+        {questions.length === 0 && (
+          <div className="text-center py-12 bg-gray-50 rounded-lg border">
+            <p className="text-lg text-muted-foreground">
+              No questions found matching your filters.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

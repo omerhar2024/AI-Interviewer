@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { FormattedText } from "@/components/ui/formatted-text";
 import { ArrowLeft, ThumbsUp, ThumbsDown, Star } from "lucide-react";
 
-export default function AnalysisPage() {
+export default function DesignThinkingAnalysisPage() {
   const { responseId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -102,7 +102,7 @@ export default function AnalysisPage() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Dashboard
         </Button>
-        <h1 className="text-4xl font-bold">STAR Analysis</h1>
+        <h1 className="text-4xl font-bold">Design Thinking Analysis</h1>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -113,6 +113,11 @@ export default function AnalysisPage() {
               Question
             </h2>
             <p className="text-lg text-gray-700">{question?.text}</p>
+            <div className="mt-4 p-3 bg-purple-100 rounded-lg">
+              <p className="text-sm font-medium text-purple-800">
+                Framework Used: Design Thinking
+              </p>
+            </div>
           </Card>
 
           <Card className="p-6 bg-gradient-to-br from-gray-50 to-white rounded-xl shadow-lg border border-gray-200">
@@ -132,7 +137,7 @@ export default function AnalysisPage() {
           <Card className="p-6 bg-gradient-to-br from-purple-50 to-white rounded-xl shadow-lg border border-purple-100">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-purple-800">
-                STAR Analysis
+                Design Thinking Analysis
               </h2>
               <div className="flex items-center gap-2">
                 <div className="flex items-center">
