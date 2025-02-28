@@ -9,6 +9,7 @@ import {
 export async function analyzeResponse(
   transcript: string,
   questionText: string,
+  framework?: string,
 ) {
   try {
     // Determine if this is a behavioral or product sense question
@@ -259,9 +260,27 @@ Areas for Improvement:
 async function analyzeProductSenseResponse(
   transcript: string,
   questionText: string,
+  framework?: string,
 ) {
   try {
-    // Try to detect which framework was used
+    // If framework is explicitly provided, use it
+    if (framework) {
+      switch (framework) {
+        case "circles":
+          return await analyzeCirclesResponse(transcript, questionText);
+        case "design-thinking":
+          return await analyzeDesignThinkingResponse(transcript, questionText);
+        case "jtbd":
+          return await analyzeJTBDResponse(transcript, questionText);
+        case "user-centric":
+          return await analyzeUserCentricResponse(transcript, questionText);
+        default:
+          // If framework is provided but not recognized, fall back to detection
+          break;
+      }
+    }
+
+    // Try to detect which framework was used if not explicitly provided
     const usedCircles =
       transcript.includes("Comprehend") &&
       transcript.includes("Identify") &&

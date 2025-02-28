@@ -100,7 +100,7 @@ export function CirclesFramework({
             <Textarea
               value={responses[section.id] || ""}
               onChange={(e) => onChange(section.id, e.target.value)}
-              placeholder={section.placeholder}
+              placeholder=""
               className="min-h-[100px]"
             />
             <div className="text-xs text-gray-500">

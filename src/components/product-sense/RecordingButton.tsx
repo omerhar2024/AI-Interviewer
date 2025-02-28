@@ -163,8 +163,20 @@ export function RecordingButton({
 
         if (feedbackError) throw feedbackError;
 
-        // Skip usage stats update for now to avoid errors
-        // We'll implement a proper solution later
+        // Update usage stats by incrementing the count
+        if (user) {
+          try {
+            const { error: usageError } = await supabase.rpc(
+              "increment_usage_count",
+              { p_user_id: user.id },
+            );
+            if (usageError)
+              console.error("Error updating usage stats:", usageError);
+          } catch (err) {
+            console.error("Failed to update usage stats:", err);
+            // Continue with the flow even if usage stats update fails
+          }
+        }
 
         // Route based on the framework
         if (framework) {
@@ -342,7 +354,7 @@ export function RecordingButton({
           value={transcript}
           onChange={(e) => setTranscript(e.target.value)}
           className="min-h-[150px] resize-none"
-          placeholder="Your speech will appear here when you start recording..."
+          placeholder=""
         />
       </div>
     </div>

@@ -53,6 +53,7 @@ export const deepseek = {
 export async function analyzeCirclesResponse(
   transcript: string,
   questionText: string,
+  retryCount = 0,
 ) {
   try {
     // This would typically call an API endpoint that uses DeepSeek or another LLM
@@ -261,7 +262,16 @@ Please provide your evaluation following the format below:
       return response.choices[0].message.content;
     } catch (deepseekError) {
       console.error("DeepSeek API error:", deepseekError);
-      // Fall back to simulation if DeepSeek fails
+
+      // Retry up to 2 times with exponential backoff
+      if (retryCount < 2) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s
+        console.log(`Retrying DeepSeek API call in ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return analyzeCirclesResponse(transcript, questionText, retryCount + 1);
+      }
+
+      // Fall back to simulation if DeepSeek fails after retries
       return simulateCirclesAnalysis(transcript, questionText);
     }
   } catch (error) {
@@ -411,6 +421,7 @@ function scoreComponent(content: string, maxScore: number): number {
 export async function analyzeDesignThinkingResponse(
   transcript: string,
   questionText: string,
+  retryCount = 0,
 ) {
   try {
     const prompt = {
@@ -564,7 +575,7 @@ Format your response as follows:
 - [Area with suggestion, addressing manipulation if detected]`,
     };
 
-    // Use DeepSeek API only
+    // Use DeepSeek API with retry logic
     try {
       const response = await deepseek.chat.completions.create({
         model: "deepseek-chat",
@@ -573,7 +584,20 @@ Format your response as follows:
       return response.choices[0].message.content;
     } catch (deepseekError) {
       console.error("DeepSeek API error:", deepseekError);
-      // Fall back to simulation if DeepSeek fails
+
+      // Retry up to 2 times with exponential backoff
+      if (retryCount < 2) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s
+        console.log(`Retrying DeepSeek API call in ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return analyzeDesignThinkingResponse(
+          transcript,
+          questionText,
+          retryCount + 1,
+        );
+      }
+
+      // Fall back to simulation if DeepSeek fails after retries
       return simulateDesignThinkingAnalysis(transcript, questionText);
     }
   } catch (error) {
@@ -665,6 +689,7 @@ Your response demonstrates some understanding of the Design Thinking framework, 
 export async function analyzeJTBDResponse(
   transcript: string,
   questionText: string,
+  retryCount = 0,
 ) {
   try {
     const prompt = {
@@ -838,7 +863,7 @@ Format your response as follows:
 - [Area with suggestion, addressing manipulation if detected]`,
     };
 
-    // Try to use DeepSeek API
+    // Try to use DeepSeek API with retry logic
     try {
       const response = await deepseek.chat.completions.create({
         model: "deepseek-chat",
@@ -847,7 +872,16 @@ Format your response as follows:
       return response.choices[0].message.content;
     } catch (deepseekError) {
       console.error("DeepSeek API error:", deepseekError);
-      // Fall back to simulation if DeepSeek fails
+
+      // Retry up to 2 times with exponential backoff
+      if (retryCount < 2) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s
+        console.log(`Retrying DeepSeek API call in ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return analyzeJTBDResponse(transcript, questionText, retryCount + 1);
+      }
+
+      // Fall back to simulation if DeepSeek fails after retries
       return simulateJTBDAnalysis(transcript, questionText);
     }
   } catch (error) {
@@ -965,6 +999,7 @@ Your response demonstrates an understanding of the JTBD framework, but there's r
 export async function analyzeUserCentricResponse(
   transcript: string,
   questionText: string,
+  retryCount = 0,
 ) {
   try {
     const prompt = {
@@ -1098,7 +1133,7 @@ Format your response as follows:
 - [Area with suggestion, addressing manipulation if detected]`,
     };
 
-    // Use DeepSeek API only
+    // Use DeepSeek API with retry logic
     try {
       const response = await deepseek.chat.completions.create({
         model: "deepseek-chat",
@@ -1107,7 +1142,20 @@ Format your response as follows:
       return response.choices[0].message.content;
     } catch (deepseekError) {
       console.error("DeepSeek API error:", deepseekError);
-      // Fall back to simulation if DeepSeek fails
+
+      // Retry up to 2 times with exponential backoff
+      if (retryCount < 2) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s
+        console.log(`Retrying DeepSeek API call in ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return analyzeUserCentricResponse(
+          transcript,
+          questionText,
+          retryCount + 1,
+        );
+      }
+
+      // Fall back to simulation if DeepSeek fails after retries
       return simulateUserCentricAnalysis(transcript, questionText);
     }
   } catch (error) {

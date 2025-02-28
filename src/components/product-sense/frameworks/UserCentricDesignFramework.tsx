@@ -14,42 +14,40 @@ export function UserCentricDesignFramework({
   const sections = [
     {
       id: "understand_context",
-      title: "Understand the Context of Use",
+      title: "Understand Context of Use",
       description:
-        "Describe how the product is currently used and the environment in which it operates.",
+        "Analyze the current situation, user interactions, and environmental factors.",
       placeholder:
-        "Describe the current usage context, including user environment and scenarios...",
+        "Describe the current product situation, how users interact with it, and relevant environmental factors...",
       example:
-        "The fitness app is primarily used by urban professionals aged 25-40 during early mornings and evenings. Users typically engage with it in short sessions (5-15 minutes) at home or in the gym, often in noisy environments with limited attention spans. Many users are juggling the app while preparing for work or managing other responsibilities.",
+        "The fitness app is primarily used by urban professionals aged 25-40 during early mornings and evenings, often in noisy gym environments with limited attention spans and frequent interruptions.",
     },
     {
       id: "specify_requirements",
-      title: "Specify User and Organizational Requirements",
-      description:
-        "Identify specific needs, goals, and pain points of users and the organization.",
-      placeholder:
-        "List the specific user needs, goals, and pain points, as well as organizational objectives...",
+      title: "Specify User Requirements",
+      description: "Identify user goals, needs, expectations, and pain points.",
+      placeholder: "List specific user goals, needs, and pain points...",
       example:
-        "User needs: Quick workout selection based on available time, clear visual instructions that don't require reading, progress tracking across sessions, and offline functionality for gym use.\n\nPain points: Complex navigation requiring too many taps, workouts that don't adapt to available equipment, and difficulty maintaining consistency.\n\nOrganizational goals: Increase user retention, drive premium subscriptions, and establish the brand as a leader in convenient fitness solutions.",
+        "Users need: 1) Quick workout selection based on available time (5-30 min), 2) Visual rather than text-based instructions for noisy environments, 3) Progress tracking across sessions, 4) Offline functionality for areas with poor connectivity.",
     },
     {
       id: "design_solution",
-      title: "Produce Design Solutions",
+      title: "Design Solution",
       description:
-        "Propose a solution that addresses the identified requirements.",
-      placeholder: "Describe your proposed design solution in detail...",
+        "Propose a solution that addresses the specified user requirements.",
+      placeholder:
+        "Describe your solution and how it addresses each identified requirement...",
       example:
-        "I propose redesigning the app with a time-based quick start feature on the home screen, allowing users to select available time (5, 10, 15, 30 min) and immediately see appropriate workouts. Each exercise would use motion graphics rather than text instructions, with optional audio guidance. The solution would include an equipment filter and a one-tap 'save for offline' feature. A weekly calendar view would visualize consistency and progress, with gentle reminders based on user-defined goals.",
+        "The redesigned app will feature: 1) A time-based quick start on the home screen allowing users to select available time (5, 10, 15, 30 min) and immediately see appropriate workouts, 2) Motion graphics rather than text instructions with optional audio guidance, 3) A weekly calendar view visualizing consistency and progress.",
     },
     {
       id: "evaluate",
-      title: "Evaluate Designs Against Requirements",
-      description:
-        "Outline methods to assess if the design meets the identified needs.",
+      title: "Evaluate",
+      description: "Define how to measure success and gather user feedback.",
       placeholder:
-        "Describe how you would evaluate whether your design meets the requirements...",
+        "Outline specific success metrics and methods for gathering user feedback...",
       example:
-        "I would evaluate the design through multiple methods:\n1. Usability testing with 12 target users, measuring task completion time for starting a time-appropriate workout (target: under 10 seconds)\n2. A/B testing the new home screen against the current version, measuring engagement metrics and session frequency\n3. Diary studies with 8 users over two weeks to assess how the design fits into their daily routines\n4. Analytics tracking of feature usage, particularly focusing on the correlation between the quick-start feature and user retention\n5. Qualitative feedback through in-app surveys focusing on perceived convenience and satisfaction",
+        "Evaluation will include: 1) Usability testing with 12 target users measuring task completion time for starting a workout (target: under 10 seconds), 2) A/B testing the new home screen against the current version measuring engagement metrics, 3) Analytics tracking correlation between quick-start feature usage and retention rate (target: 20% improvement).",
     },
   ];
 
@@ -60,10 +58,9 @@ export function UserCentricDesignFramework({
           User-Centric Design Framework
         </h3>
         <p className="text-sm text-orange-700">
-          User-Centered Design focuses on designing products that meet user
-          needs and expectations, ensuring usability and satisfaction through
-          understanding context, specifying requirements, designing solutions,
-          and evaluating against those requirements.
+          The User-Centric Design framework focuses on understanding users'
+          needs and contexts, specifying requirements, designing solutions, and
+          evaluating them with users to ensure they meet the intended goals.
         </p>
       </div>
 
@@ -82,7 +79,7 @@ export function UserCentricDesignFramework({
             <Textarea
               value={responses[section.id] || ""}
               onChange={(e) => onChange(section.id, e.target.value)}
-              placeholder={section.placeholder}
+              placeholder=""
               className="min-h-[100px]"
             />
             <div className="text-xs text-gray-500">
