@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import { createAdminClient } from "@/lib/admin-client";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,9 +51,16 @@ import {
   Shield,
   UserCog,
   AlertCircle,
+  Database,
+  Wrench,
 } from "lucide-react";
 import { useIsAdmin } from "@/lib/hooks/use-admin";
 import { syncAllAuthUsers } from "@/lib/admin";
+import { deleteUser, updateUserRole, createUser } from "@/lib/user-management";
+import {
+  fixCommonDatabaseIssues,
+  runDatabaseDiagnostics,
+} from "@/lib/debug-database";
 
 import { useFontFix } from "@/lib/hooks/use-font-fix";
 
@@ -61,6 +69,8 @@ export default function UserManagementPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { data: isAdmin } = useIsAdmin();
+  // Create supabaseAdmin client
+  const supabaseAdmin = createAdminClient();
 
   // Apply font fix to prevent CSP errors
   useFontFix();
@@ -92,6 +102,22 @@ export default function UserManagementPage() {
     fetchUsers();
   }, [user, isAdmin, navigate, toast]);
 
+  // Debug logging for user roles when users are loaded
+  useEffect(() => {
+    // When users are loaded, log their roles to check if they're correct
+    if (users && users.length > 0) {
+      console.log(
+        "Current user roles in UI:",
+        users.map((user) => ({
+          email: user.email,
+          role: user.role,
+          subscription: user.subscriptions?.[0]?.plan_type,
+          status: user.subscriptions?.[0]?.status,
+        })),
+      );
+    }
+  }, [users]);
+
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -99,13 +125,69 @@ export default function UserManagementPage() {
 
       // First try to fix database schema and create missing functions
       try {
-        // Skip SQL functions since they're failing with 404
-        // Just try to sync users directly
-        const { success, message } = await syncAllAuthUsers();
-        console.log("Sync result:", message);
-      } catch (syncError) {
-        console.error("Error syncing users:", syncError);
-        fetchError = syncError;
+        // Try to force a complete refresh of user data
+        const { forceUserDataRefresh } = await import(
+          "@/lib/user-data-refresh"
+        );
+        await forceUserDataRefresh();
+        console.log("Forced user data refresh before fetching");
+      } catch (refreshError) {
+        console.error("Error refreshing user data:", refreshError);
+        // Continue with normal sync if refresh fails
+        try {
+          // Skip SQL functions since they're failing with 404
+          // Just try to sync users directly
+          const { success, message } = await syncAllAuthUsers();
+          console.log("Sync result:", message);
+        } catch (syncError) {
+          console.error("Error syncing users:", syncError);
+          fetchError = syncError;
+        }
+      }
+
+      // Use the admin client to get the most accurate data
+      try {
+        console.log("Fetching users with admin client");
+        const { data, error } = await supabaseAdmin
+          .from("users")
+          .select(
+            `
+            *,
+            subscriptions(*)
+          `,
+          )
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching users with admin client:", error);
+          throw error;
+        }
+
+        // Process the data to include subscription information
+        const processedUsers = data.map((user) => ({
+          ...user,
+          // Ensure subscriptions is always an array
+          subscriptions: Array.isArray(user.subscriptions)
+            ? user.subscriptions
+            : user.subscriptions
+              ? [user.subscriptions]
+              : [],
+        }));
+
+        console.log(`Fetched ${processedUsers.length} users with admin client`);
+        setUsers(processedUsers);
+
+        // Log detailed user information for debugging
+        const { logUserRoles } = await import("@/lib/user-data-refresh");
+        logUserRoles(processedUsers);
+
+        return;
+      } catch (adminError) {
+        console.error(
+          "Error fetching with admin client, trying fallbacks:",
+          adminError,
+        );
+        // Continue to fallback methods
       }
 
       // First try to get users from auth.users via RPC
@@ -235,32 +317,27 @@ export default function UserManagementPage() {
     }
 
     try {
-      // 1. Delete subscription records first to avoid foreign key constraints
-      const { error: subscriptionError } = await supabase
-        .from("subscriptions")
-        .delete()
-        .eq("user_id", userToDelete);
+      setLoading(true);
+      // Use the comprehensive deleteUser function
+      const result = await deleteUser(userToDelete);
 
-      if (subscriptionError) {
-        console.error("Error deleting subscription:", subscriptionError);
-        // Continue with user deletion even if subscription deletion fails
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "User deleted successfully.",
+        });
+
+        // Refresh the user list
+        fetchUsers();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description:
+            result.message || "Failed to delete user. Please try again.",
+        });
       }
 
-      // 2. Delete the user from the users table
-      const { error } = await supabase
-        .from("users")
-        .delete()
-        .eq("id", userToDelete);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "User deleted successfully.",
-      });
-
-      // Refresh the user list
-      fetchUsers();
       setUserToDelete(null);
       setIsDeleteDialogOpen(false);
     } catch (error) {
@@ -270,6 +347,8 @@ export default function UserManagementPage() {
         title: "Error",
         description: "Failed to delete user. Please try again.",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -299,112 +378,51 @@ export default function UserManagementPage() {
 
       setLoading(true);
 
-      // Update role for each selected user
+      // Track success and failures
+      let successCount = 0;
+      let failureCount = 0;
+
+      // Update role for each selected user using the comprehensive function
       for (const userId of selectedUsers) {
-        // 1. Update user role in users table
-        try {
-          // Try using RPC function first
-          const { error: rpcError } = await supabase.rpc("update_user_role", {
-            p_user_id: userId,
-            p_role: selectedRole,
-          });
+        const result = await updateUserRole(userId, selectedRole);
 
-          // If RPC fails, try direct update without updated_at
-          let updateError = null;
-          if (rpcError) {
-            console.log("RPC update failed, trying direct update");
-            const result = await supabase
-              .from("users")
-              .update({ role: selectedRole })
-              .match({ id: userId });
-
-            updateError = result.error;
-
-            // If match fails, try eq
-            if (updateError) {
-              const eqResult = await supabase
-                .from("users")
-                .update({ role: selectedRole })
-                .eq("id", userId);
-
-              updateError = eqResult.error;
-            }
-          }
-
-          if (updateError) {
-            console.error("Error updating user role:", updateError);
-            throw updateError;
-          }
-        } catch (updateError) {
-          console.error("Error updating user role:", updateError);
-          throw updateError;
+        if (result.success || result.partialSuccess) {
+          successCount++;
+        } else {
+          failureCount++;
         }
-
-        // 2. Update or create subscription record based on new role
-        let subscriptionError = null;
-        try {
-          // Try with all fields first
-          const result = await supabase.from("subscriptions").upsert(
-            {
-              user_id: userId,
-              plan_type: selectedRole === "premium" ? "premium" : "free",
-              status: "active",
-              start_date: new Date().toISOString(),
-              end_date: null,
-              question_limit: selectedRole === "premium" ? -1 : 10,
-              perfect_response_limit: selectedRole === "premium" ? 50 : 5,
-              perfect_responses_used: 0,
-            },
-            { onConflict: "user_id" },
-          );
-
-          subscriptionError = result.error;
-
-          if (
-            subscriptionError &&
-            subscriptionError.message?.includes("question_limit")
-          ) {
-            // Try without the problematic fields
-            const fallbackResult = await supabase.from("subscriptions").upsert(
-              {
-                user_id: userId,
-                plan_type: selectedRole === "premium" ? "premium" : "free",
-                status: "active",
-                start_date: new Date().toISOString(),
-                end_date: null,
-              },
-              { onConflict: "user_id" },
-            );
-
-            subscriptionError = fallbackResult.error;
-          }
-        } catch (error) {
-          // Try with minimal fields as a last resort
-          try {
-            const minimalResult = await supabase.from("subscriptions").upsert(
-              {
-                user_id: userId,
-                plan_type: selectedRole === "premium" ? "premium" : "free",
-                status: "active",
-                start_date: new Date().toISOString(),
-              },
-              { onConflict: "user_id" },
-            );
-
-            subscriptionError = minimalResult.error;
-          } catch (minError) {
-            console.error("Error in minimal subscription update:", minError);
-            subscriptionError = { message: "Failed to update subscription" };
-          }
-        }
-
-        if (subscriptionError) throw subscriptionError;
       }
 
-      toast({
-        title: "Success",
-        description: `Updated ${selectedUsers.length} user(s) to ${selectedRole} role.`,
-      });
+      // Force a complete refresh of user data after all updates
+      try {
+        const { forceUserDataRefresh } = await import(
+          "@/lib/user-data-refresh"
+        );
+        await forceUserDataRefresh();
+        console.log("Forced complete user data refresh after batch updates");
+      } catch (refreshError) {
+        console.error("Error forcing data refresh:", refreshError);
+      }
+
+      // Show appropriate toast based on results
+      if (failureCount === 0) {
+        toast({
+          title: "Success",
+          description: `Updated ${successCount} user(s) to ${selectedRole} role.`,
+        });
+      } else if (successCount > 0) {
+        toast({
+          variant: "warning",
+          title: "Partial Success",
+          description: `Updated ${successCount} user(s), but failed to update ${failureCount} user(s).`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to update any user roles. Please try again.",
+        });
+      }
 
       setIsRoleDialogOpen(false);
       setSelectedUsers([]);
@@ -438,6 +456,7 @@ export default function UserManagementPage() {
       });
       return;
     }
+
     try {
       if (!newUserEmail || !newUserPassword) {
         toast({
@@ -450,138 +469,52 @@ export default function UserManagementPage() {
 
       setLoading(true);
 
-      // Check if email already exists in the users table
-      const { data: existingUser, error: checkError } = await supabase
-        .from("users")
-        .select("email")
-        .eq("email", newUserEmail)
-        .single();
+      // Use the comprehensive createUser function
+      const result = await createUser(
+        newUserEmail,
+        newUserPassword,
+        newUserRole,
+      );
 
-      if (existingUser) {
-        setLoading(false);
+      if (result.success) {
+        // Store the current time as the last creation time
+        localStorage.setItem("lastUserCreationTime", Date.now().toString());
+
+        toast({
+          title: "Success",
+          description:
+            result.message ||
+            `User ${newUserEmail} added successfully with ${newUserRole} role.`,
+        });
+
+        setIsAddUserDialogOpen(false);
+        setNewUserEmail("");
+        setNewUserPassword("");
+        setNewUserRole("free");
+        fetchUsers(); // Refresh the user list
+      } else if (result.partialSuccess) {
+        // Store the current time as the last creation time
+        localStorage.setItem("lastUserCreationTime", Date.now().toString());
+
+        toast({
+          variant: "warning",
+          title: "Partial Success",
+          description:
+            result.message || "User created but some operations failed.",
+        });
+
+        setIsAddUserDialogOpen(false);
+        setNewUserEmail("");
+        setNewUserPassword("");
+        setNewUserRole("free");
+        fetchUsers(); // Refresh the user list
+      } else {
         toast({
           variant: "destructive",
-          title: "Email Already Exists",
-          description:
-            "This email address is already registered in the system.",
+          title: "Error",
+          description: result.message || "Failed to create user.",
         });
-        return;
       }
-
-      // 1. Create user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: newUserEmail,
-        password: newUserPassword,
-      });
-
-      if (authError) throw authError;
-
-      // 2. Add user to users table with selected role
-      if (authData.user) {
-        let userError;
-
-        // Try with updated_at first
-        try {
-          const result = await supabase.from("users").insert({
-            id: authData.user.id,
-            email: newUserEmail,
-            role: newUserRole,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
-
-          userError = result.error;
-
-          // If there's an error with updated_at, try without it
-          if (userError && userError.message?.includes("updated_at")) {
-            const fallbackResult = await supabase.from("users").insert({
-              id: authData.user.id,
-              email: newUserEmail,
-              role: newUserRole,
-              created_at: new Date().toISOString(),
-            });
-
-            userError = fallbackResult.error;
-          }
-        } catch (error) {
-          // Try without updated_at as a fallback
-          const fallbackResult = await supabase.from("users").insert({
-            id: authData.user.id,
-            email: newUserEmail,
-            role: newUserRole,
-            created_at: new Date().toISOString(),
-          });
-
-          userError = fallbackResult.error;
-        }
-
-        if (userError) throw userError;
-
-        // 3. Create subscription record for the user
-        let subscriptionError = null;
-        try {
-          // Try with all fields first
-          const result = await supabase.from("subscriptions").insert({
-            user_id: authData.user.id,
-            plan_type: newUserRole === "premium" ? "premium" : "free",
-            start_date: new Date().toISOString(),
-            end_date: null,
-            status: "active",
-            question_limit: newUserRole === "premium" ? -1 : 10,
-            perfect_response_limit: newUserRole === "premium" ? 50 : 5,
-            perfect_responses_used: 0,
-          });
-
-          subscriptionError = result.error;
-
-          if (
-            subscriptionError &&
-            subscriptionError.message?.includes("question_limit")
-          ) {
-            // Try without the problematic fields
-            const fallbackResult = await supabase.from("subscriptions").insert({
-              user_id: authData.user.id,
-              plan_type: newUserRole === "premium" ? "premium" : "free",
-              start_date: new Date().toISOString(),
-              end_date: null,
-              status: "active",
-            });
-
-            subscriptionError = fallbackResult.error;
-          }
-        } catch (error) {
-          // Try with minimal fields as a last resort
-          try {
-            const minimalResult = await supabase.from("subscriptions").insert({
-              user_id: authData.user.id,
-              plan_type: newUserRole === "premium" ? "premium" : "free",
-              start_date: new Date().toISOString(),
-              status: "active",
-            });
-
-            subscriptionError = minimalResult.error;
-          } catch (minError) {
-            console.error("Error in minimal subscription creation:", minError);
-            subscriptionError = { message: "Failed to create subscription" };
-          }
-        }
-
-        if (subscriptionError) throw subscriptionError;
-      }
-
-      // Store the current time as the last creation time
-      localStorage.setItem("lastUserCreationTime", Date.now().toString());
-
-      toast({
-        title: "Success",
-        description: `User ${newUserEmail} added successfully with ${newUserRole} role.`,
-      });
-
-      setIsAddUserDialogOpen(false);
-      setNewUserEmail("");
-      setNewUserPassword("");
-      setNewUserRole("free");
-      fetchUsers(); // Refresh the user list
     } catch (error) {
       console.error("Error adding user:", error);
 
@@ -733,15 +666,52 @@ export default function UserManagementPage() {
             </ul>
             <div className="flex justify-end">
               <Button
-                onClick={() => navigate("/admin/fix-database")}
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    const result = await fixCommonDatabaseIssues();
+                    if (result.fixes.length > 0) {
+                      toast({
+                        title: "Database Fixed",
+                        description: `Fixed ${result.fixes.length} issues. Refreshing data...`,
+                      });
+                    } else if (result.issues.length > 0) {
+                      toast({
+                        variant: "warning",
+                        title: "Issues Found",
+                        description: `Found ${result.issues.length} issues but couldn't fix them automatically.`,
+                      });
+                    } else {
+                      toast({
+                        title: "Database Checked",
+                        description:
+                          "No issues found with the database schema.",
+                      });
+                    }
+                    // Refresh users after fixing issues
+                    await fetchUsers();
+                  } catch (error) {
+                    console.error("Error fixing database:", error);
+                    toast({
+                      variant: "destructive",
+                      title: "Error",
+                      description:
+                        "Failed to fix database issues. Try the Fix Database page.",
+                    });
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
                 className="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white mr-4"
               >
+                <Database className="h-4 w-4 mr-2" />
                 Fix Database
               </Button>
               <Button
                 onClick={() => navigate("/admin/fix-users")}
                 className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
               >
+                <Wrench className="h-4 w-4 mr-2" />
                 Fix User Permissions
               </Button>
             </div>
@@ -756,9 +726,70 @@ export default function UserManagementPage() {
               variant="outline"
               onClick={fetchUsers}
               className="flex items-center gap-2"
+              disabled={loading}
             >
-              <RefreshCw className="h-4 w-4 mr-1" />
-              Refresh Users
+              <RefreshCw
+                className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`}
+              />
+              {loading ? "Refreshing..." : "Refresh Users"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                setLoading(true);
+                try {
+                  const diagnostics = await runDatabaseDiagnostics();
+                  console.log("Database diagnostics:", diagnostics);
+
+                  // Check for critical issues
+                  const missingTables = Object.entries(diagnostics.tables)
+                    .filter(([_, exists]) => !exists)
+                    .map(([table]) => table);
+
+                  const missingColumns = Object.entries(
+                    diagnostics.columns,
+                  ).flatMap(([table, columns]) =>
+                    Object.entries(columns)
+                      .filter(([_, exists]) => !exists)
+                      .map(([column]) => `${table}.${column}`),
+                  );
+
+                  const missingFunctions = Object.entries(diagnostics.functions)
+                    .filter(([_, exists]) => !exists)
+                    .map(([func]) => func);
+
+                  if (
+                    missingTables.length > 0 ||
+                    missingColumns.length > 0 ||
+                    missingFunctions.length > 0
+                  ) {
+                    toast({
+                      variant: "warning",
+                      title: "Database Issues Found",
+                      description: `Missing tables: ${missingTables.length}, Missing columns: ${missingColumns.length}, Missing functions: ${missingFunctions.length}. Click Fix Database to resolve.`,
+                    });
+                  } else {
+                    toast({
+                      title: "Database OK",
+                      description: "No issues found with the database schema.",
+                    });
+                  }
+                } catch (error) {
+                  console.error("Error running diagnostics:", error);
+                  toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: "Failed to run database diagnostics.",
+                  });
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="flex items-center gap-2"
+              disabled={loading}
+            >
+              <Database className="h-4 w-4 mr-1" />
+              Check Database
             </Button>
             <div className="relative w-full md:w-64">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -818,15 +849,14 @@ export default function UserManagementPage() {
                     />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <label className="text-right">Role</label>
+                    <label className="text-right">Subscription</label>
                     <Select value={newUserRole} onValueChange={setNewUserRole}>
                       <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select role" />
+                        <SelectValue placeholder="Select subscription" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="free">Free User</SelectItem>
                         <SelectItem value="premium">Premium User</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -868,18 +898,17 @@ export default function UserManagementPage() {
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <label className="text-right">Role</label>
+                    <label className="text-right">Subscription</label>
                     <Select
                       value={selectedRole}
                       onValueChange={setSelectedRole}
                     >
                       <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select role" />
+                        <SelectValue placeholder="Select subscription" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="free">Free User</SelectItem>
                         <SelectItem value="premium">Premium User</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -942,8 +971,14 @@ export default function UserManagementPage() {
                             ? "bg-blue-100 text-blue-800"
                             : user.role === "premium" ||
                                 (user.subscriptions &&
-                                  user.subscriptions[0]?.plan_type ===
-                                    "premium")
+                                  ((user.subscriptions[0]?.plan_type ===
+                                    "premium" &&
+                                    user.subscriptions[0]?.status ===
+                                      "active") ||
+                                    (user.subscriptions[0]?.tier ===
+                                      "premium" &&
+                                      user.subscriptions[0]?.status ===
+                                        "active")))
                               ? "bg-green-100 text-green-800"
                               : "bg-gray-100 text-gray-800"
                         }`}
@@ -955,7 +990,11 @@ export default function UserManagementPage() {
                           </div>
                         ) : user.role === "premium" ||
                           (user.subscriptions &&
-                            user.subscriptions[0]?.plan_type === "premium") ? (
+                            ((user.subscriptions[0]?.plan_type === "premium" &&
+                              user.subscriptions[0]?.status === "active") ||
+                              (user.subscriptions[0]?.tier === "premium" &&
+                                user.subscriptions[0]?.status ===
+                                  "active"))) ? (
                           "Premium"
                         ) : (
                           "Free"

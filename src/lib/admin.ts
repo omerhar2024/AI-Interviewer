@@ -1,15 +1,15 @@
 import { supabase } from "./supabase";
+import { supabaseAdmin } from "./supabase-admin";
 import {
   syncCurrentUser,
   fetchUsersDirectly,
   disableRLS,
 } from "./direct-user-management";
+import { createOrUpdateSubscription } from "./subscription-management";
 
 // Function to manually fetch all auth users and sync them to public.users table
 export async function syncAllAuthUsers() {
   try {
-    // Skip disabling RLS since it's failing with 404
-
     // Try to sync the current user first as a fallback
     try {
       const syncResult = await syncCurrentUser();
@@ -19,21 +19,119 @@ export async function syncAllAuthUsers() {
       // Continue even if current user sync fails
     }
 
-    // Try the new list_all_users function first
+    // Try to get all users using admin client
     try {
+      // Use admin client to list all users
       const { data: authUsers, error: authError } =
-        await supabase.rpc("list_all_users");
+        await supabaseAdmin.auth.admin.listUsers();
 
-      if (!authError && authUsers && authUsers.length > 0) {
-        console.log(`Found ${authUsers.length} auth users via RPC`);
+      if (
+        !authError &&
+        authUsers &&
+        authUsers.users &&
+        authUsers.users.length > 0
+      ) {
+        console.log(
+          `Found ${authUsers.users.length} auth users via admin client`,
+        );
 
         // Insert each auth user into public.users table
         let successCount = 0;
         let errorCount = 0;
 
-        for (const authUser of authUsers) {
+        for (const authUser of authUsers.users) {
           try {
             // Handle potential type mismatches by converting values
+            const userId =
+              typeof authUser.id === "string"
+                ? authUser.id
+                : String(authUser.id);
+            const email =
+              typeof authUser.email === "string"
+                ? authUser.email
+                : String(authUser.email || "");
+            const createdAt = authUser.created_at
+              ? new Date(authUser.created_at).toISOString()
+              : new Date().toISOString();
+            const role = "user"; // Default role
+
+            // Use admin client for user insertion
+            const { error: insertError } = await supabaseAdmin
+              .from("users")
+              .upsert(
+                {
+                  id: userId,
+                  email: email,
+                  created_at: createdAt,
+                  updated_at: new Date().toISOString(),
+                  role: role,
+                },
+                { onConflict: "id" },
+              );
+
+            if (insertError && insertError.code !== "23505") {
+              // Ignore duplicate key errors
+              console.error(`Error inserting user ${email}:`, insertError);
+              errorCount++;
+            } else {
+              successCount++;
+
+              // Get existing subscription if any
+              const { data: existingSubscription } = await supabaseAdmin
+                .from("subscriptions")
+                .select("*")
+                .eq("user_id", userId)
+                .maybeSingle();
+
+              // Create or update subscription using the new subscription management function
+              const { success, error: subscriptionError } =
+                await createOrUpdateSubscription(
+                  userId,
+                  role === "admin" ? "premium" : "free",
+                  existingSubscription,
+                );
+
+              if (!success) {
+                console.error(
+                  `Error creating subscription for ${email}:`,
+                  subscriptionError,
+                );
+              }
+            }
+          } catch (userError) {
+            console.error(
+              `Error processing user ${authUser.email || "unknown"}:`,
+              userError,
+            );
+            errorCount++;
+          }
+        }
+
+        return {
+          success: true,
+          message: `Synchronized ${successCount} users successfully. ${errorCount} errors.`,
+        };
+      }
+    } catch (adminError) {
+      console.error("Error with admin.listUsers:", adminError);
+      // Continue to fallback methods
+    }
+
+    // Try the list_all_users function as fallback
+    try {
+      const { data: authUsers, error: authError } =
+        await supabaseAdmin.rpc("list_all_users");
+
+      if (!authError && authUsers && authUsers.length > 0) {
+        console.log(`Found ${authUsers.length} auth users via RPC`);
+
+        // Process users from RPC function
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const authUser of authUsers) {
+          try {
+            // Handle potential type mismatches
             const userId =
               typeof authUser.id === "string"
                 ? authUser.id
@@ -48,53 +146,44 @@ export async function syncAllAuthUsers() {
             const role =
               typeof authUser.role === "string" ? authUser.role : "user";
 
-            const { error: insertError } = await supabase.from("users").upsert(
-              {
-                id: userId,
-                email: email,
-                created_at: createdAt,
-                updated_at: new Date().toISOString(),
-                role: role,
-              },
-              { onConflict: "id" },
-            );
+            // Use admin client for user insertion
+            const { error: insertError } = await supabaseAdmin
+              .from("users")
+              .upsert(
+                {
+                  id: userId,
+                  email: email,
+                  created_at: createdAt,
+                  updated_at: new Date().toISOString(),
+                  role: role,
+                },
+                { onConflict: "id" },
+              );
 
             if (insertError && insertError.code !== "23505") {
-              // Ignore duplicate key errors
               console.error(`Error inserting user ${email}:`, insertError);
               errorCount++;
             } else {
               successCount++;
 
-              // Also ensure each user has a subscription
-              try {
-                const { error: subscriptionError } = await supabase
-                  .from("subscriptions")
-                  .upsert(
-                    {
-                      user_id: userId,
-                      plan_type: role === "admin" ? "premium" : "free",
-                      start_date: new Date().toISOString(),
-                      end_date: null,
-                      status: "active",
-                      question_limit:
-                        role === "admin" || role === "premium" ? -1 : 10,
-                      perfect_response_limit:
-                        role === "admin" || role === "premium" ? 50 : 5,
-                      perfect_responses_used: 0,
-                    },
-                    { onConflict: "user_id" },
-                  );
+              // Get existing subscription if any
+              const { data: existingSubscription } = await supabaseAdmin
+                .from("subscriptions")
+                .select("*")
+                .eq("user_id", userId)
+                .maybeSingle();
 
-                if (subscriptionError) {
-                  console.error(
-                    `Error creating subscription for ${email}:`,
-                    subscriptionError,
-                  );
-                }
-              } catch (subscriptionError) {
+              // Create or update subscription using the new subscription management function
+              const { success, error: subscriptionError } =
+                await createOrUpdateSubscription(
+                  userId,
+                  role === "admin" ? "premium" : "free",
+                  existingSubscription,
+                );
+
+              if (!success) {
                 console.error(
-                  `Error in subscription creation for ${email}:`,
+                  `Error creating subscription for ${email}:`,
                   subscriptionError,
                 );
               }
@@ -118,105 +207,7 @@ export async function syncAllAuthUsers() {
       // Continue to fallback methods
     }
 
-    // Try the old get_all_auth_users function as fallback
-    try {
-      const { data: oldAuthUsers, error: oldAuthError } =
-        await supabase.rpc("get_all_auth_users");
-
-      if (!oldAuthError && oldAuthUsers && oldAuthUsers.length > 0) {
-        console.log(`Found ${oldAuthUsers.length} auth users via old RPC`);
-
-        // Process users from old function
-        let successCount = 0;
-        let errorCount = 0;
-
-        for (const authUser of oldAuthUsers) {
-          try {
-            // Handle potential type mismatches
-            const userId =
-              typeof authUser.id === "string"
-                ? authUser.id
-                : String(authUser.id);
-            const email =
-              typeof authUser.email === "string"
-                ? authUser.email
-                : String(authUser.email || "");
-            const createdAt = authUser.created_at
-              ? new Date(authUser.created_at).toISOString()
-              : new Date().toISOString();
-            const role =
-              typeof authUser.role === "string" ? authUser.role : "user";
-
-            const { error: insertError } = await supabase.from("users").upsert(
-              {
-                id: userId,
-                email: email,
-                created_at: createdAt,
-                updated_at: new Date().toISOString(),
-                role: role,
-              },
-              { onConflict: "id" },
-            );
-
-            if (insertError && insertError.code !== "23505") {
-              console.error(`Error inserting user ${email}:`, insertError);
-              errorCount++;
-            } else {
-              successCount++;
-
-              // Create subscription
-              try {
-                const { error: subscriptionError } = await supabase
-                  .from("subscriptions")
-                  .upsert(
-                    {
-                      user_id: userId,
-                      plan_type: role === "admin" ? "premium" : "free",
-                      start_date: new Date().toISOString(),
-                      end_date: null,
-                      status: "active",
-                      question_limit:
-                        role === "admin" || role === "premium" ? -1 : 10,
-                      perfect_response_limit:
-                        role === "admin" || role === "premium" ? 50 : 5,
-                      perfect_responses_used: 0,
-                    },
-                    { onConflict: "user_id" },
-                  );
-
-                if (subscriptionError) {
-                  console.error(
-                    `Error creating subscription for ${email}:`,
-                    subscriptionError,
-                  );
-                }
-              } catch (subscriptionError) {
-                console.error(
-                  `Error in subscription creation for ${email}:`,
-                  subscriptionError,
-                );
-              }
-            }
-          } catch (userError) {
-            console.error(
-              `Error processing user ${authUser.email || "unknown"}:`,
-              userError,
-            );
-            errorCount++;
-          }
-        }
-
-        return {
-          success: true,
-          message: `Synchronized ${successCount} users successfully. ${errorCount} errors.`,
-        };
-      }
-    } catch (oldRpcError) {
-      console.error("Error with get_all_auth_users RPC:", oldRpcError);
-      // Continue to fallback methods
-    }
-
-    // If all RPC methods fail, try to get at least the current user
+    // If all methods fail, try to get at least the current user
     const directResult = await directSyncUsers();
     if (directResult.success) {
       return directResult;
@@ -257,6 +248,25 @@ export async function directSyncUsers() {
     return {
       success: false,
       message: error.message || "Unknown error occurred",
+    };
+  }
+}
+
+// Function to run the expired subscription check
+export async function processExpiredSubscriptions() {
+  try {
+    // Import the function to avoid circular dependencies
+    const { checkExpiredSubscriptions } = await import(
+      "./subscription-management"
+    );
+    return await checkExpiredSubscriptions();
+  } catch (error) {
+    console.error("Error in processExpiredSubscriptions:", error);
+    return {
+      success: false,
+      error,
+      processed: 0,
+      message: "Failed to process expired subscriptions",
     };
   }
 }
