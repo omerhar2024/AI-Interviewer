@@ -9,29 +9,62 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      behavioral_questions: {
+        Row: {
+          created_at: string | null
+          id: string
+          question: string
+          sample_response: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          question: string
+          sample_response: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          question?: string
+          sample_response?: string
+        }
+        Relationships: []
+      }
       feedback: {
         Row: {
+          action_score: number | null
           created_at: string
           id: string
-          rating: number
+          rating: number | null
           response_id: string
+          result_score: number | null
           score: number
+          situation_score: number | null
+          task_score: number | null
           text: string
         }
         Insert: {
+          action_score?: number | null
           created_at?: string
           id?: string
-          rating: number
+          rating?: number | null
           response_id: string
+          result_score?: number | null
           score: number
+          situation_score?: number | null
+          task_score?: number | null
           text: string
         }
         Update: {
+          action_score?: number | null
           created_at?: string
           id?: string
-          rating?: number
+          rating?: number | null
           response_id?: string
+          result_score?: number | null
           score?: number
+          situation_score?: number | null
+          task_score?: number | null
           text?: string
         }
         Relationships: [
@@ -47,19 +80,25 @@ export type Database = {
       questions: {
         Row: {
           created_at: string
+          difficulty: string | null
           id: string
+          sample_response: string | null
           text: string
           type: string
         }
         Insert: {
           created_at?: string
+          difficulty?: string | null
           id?: string
+          sample_response?: string | null
           text: string
           type: string
         }
         Update: {
           created_at?: string
+          difficulty?: string | null
           id?: string
+          sample_response?: string | null
           text?: string
           type?: string
         }
@@ -67,24 +106,42 @@ export type Database = {
       }
       responses: {
         Row: {
-          audio_url: string
+          action: string | null
+          audio_url: string | null
           created_at: string
           id: string
+          notes: Json | null
           question_id: string
+          result: string | null
+          situation: string | null
+          task: string | null
+          transcript: string | null
           user_id: string
         }
         Insert: {
-          audio_url: string
+          action?: string | null
+          audio_url?: string | null
           created_at?: string
           id?: string
+          notes?: Json | null
           question_id: string
+          result?: string | null
+          situation?: string | null
+          task?: string | null
+          transcript?: string | null
           user_id: string
         }
         Update: {
-          audio_url?: string
+          action?: string | null
+          audio_url?: string | null
           created_at?: string
           id?: string
+          notes?: Json | null
           question_id?: string
+          result?: string | null
+          situation?: string | null
+          task?: string | null
+          transcript?: string | null
           user_id?: string
         }
         Relationships: [
@@ -108,22 +165,31 @@ export type Database = {
         Row: {
           end_date: string
           id: string
+          perfect_response_limit: number | null
+          perfect_responses_used: number | null
           plan_type: string
           start_date: string
+          stripe_subscription_id: string | null
           user_id: string
         }
         Insert: {
           end_date: string
           id?: string
+          perfect_response_limit?: number | null
+          perfect_responses_used?: number | null
           plan_type: string
           start_date: string
+          stripe_subscription_id?: string | null
           user_id: string
         }
         Update: {
           end_date?: string
           id?: string
+          perfect_response_limit?: number | null
+          perfect_responses_used?: number | null
           plan_type?: string
           start_date?: string
+          stripe_subscription_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -165,23 +231,80 @@ export type Database = {
           },
         ]
       }
+      usage_limits: {
+        Row: {
+          created_at: string | null
+          id: string
+          perfect_response_limit: number
+          plan_type: string
+          question_limit: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          perfect_response_limit?: number
+          plan_type: string
+          question_limit?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          perfect_response_limit?: number
+          plan_type?: string
+          question_limit?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      usage_stats: {
+        Row: {
+          count: number
+          created_at: string | null
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          count?: number
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           created_at: string
           email: string
           id: string
+          role: string | null
+          stripe_customer_id: string | null
           subscription_status: string | null
         }
         Insert: {
           created_at?: string
           email: string
           id: string
+          role?: string | null
+          stripe_customer_id?: string | null
           subscription_status?: string | null
         }
         Update: {
           created_at?: string
           email?: string
           id?: string
+          role?: string | null
+          stripe_customer_id?: string | null
           subscription_status?: string | null
         }
         Relationships: []
@@ -191,7 +314,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_usage_count: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      reset_monthly_usage: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

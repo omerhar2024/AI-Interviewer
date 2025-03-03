@@ -3,7 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
-import { Users, CreditCard, FileText, BarChart } from "lucide-react";
+import {
+  Users,
+  CreditCard,
+  FileText,
+  BarChart,
+  Zap,
+  Settings,
+  Database,
+  Shield,
+} from "lucide-react";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -173,6 +182,50 @@ export default function AdminDashboard() {
             </p>
             <Button className="w-full bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white">
               Manage Content
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="bg-gradient-to-br from-blue-50 to-white rounded-xl shadow-lg border border-blue-100 hover:shadow-xl transition-all duration-200 cursor-pointer"
+          onClick={() => navigate("/admin/usage-limits")}
+        >
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-orange-100 rounded-full">
+                <Zap className="h-6 w-6 text-orange-600" />
+              </div>
+              <CardTitle>Usage Limits</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground mb-4">
+              Configure usage limits for free and premium users
+            </p>
+            <Button className="w-full bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white">
+              Configure Limits
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="bg-gradient-to-br from-blue-50 to-white rounded-xl shadow-lg border border-blue-100 hover:shadow-xl transition-all duration-200 cursor-pointer"
+          onClick={() => navigate("/admin/api-settings")}
+        >
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-red-100 rounded-full">
+                <Settings className="h-6 w-6 text-red-600" />
+              </div>
+              <CardTitle>API Settings</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground mb-4">
+              Configure API keys and settings for DeepSeek
+            </p>
+            <Button className="w-full bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white">
+              Manage API Settings
             </Button>
           </CardContent>
         </Card>

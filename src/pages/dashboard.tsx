@@ -6,15 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Brain, MessageSquare, Star, Clock, ChevronRight } from "lucide-react";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import { useSubscription, useUsageStats } from "@/lib/hooks/use-subscription";
+import {
+  useSubscriptionSafe,
+  useUsageStatsSafe,
+} from "@/lib/hooks/use-subscription-safe";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [recentResponses, setRecentResponses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { data: subscription } = useSubscription();
-  const { data: usageStats } = useUsageStats();
+  // Use safe versions of the hooks that won't cause 502 errors
+  const { data: subscription } = useSubscriptionSafe();
+  const { data: usageStats } = useUsageStatsSafe();
 
   useEffect(() => {
     const fetchRecentResponses = async () => {
@@ -42,12 +46,17 @@ export default function DashboardPage() {
   }, [user]);
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "";
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    } catch (e) {
+      return "";
+    }
   };
 
   const getScoreColor = (score: number) => {
@@ -118,7 +127,10 @@ export default function DashboardPage() {
                   <span className="font-medium">Average Score</span>
                 </div>
                 <span className="text-lg font-bold">
-                  {usageStats?.average_score?.toFixed(1) || "N/A"}/10
+                  {usageStats?.average_score
+                    ? usageStats.average_score.toFixed(1)
+                    : "N/A"}
+                  /10
                 </span>
               </div>
 
@@ -162,18 +174,37 @@ export default function DashboardPage() {
               <div className="flex justify-between items-center">
                 <span className="font-medium">Questions Remaining</span>
                 <span className="text-lg font-bold">
-                  {subscription?.plan_type === "pro"
+                  {subscription?.question_limit === -1
                     ? "Unlimited"
-                    : Math.max(0, 10 - (usageStats?.used || 0))}
+                    : Math.max(
+                        0,
+                        (subscription?.question_limit || 0) -
+                          (usageStats?.used || 0),
+                      )}
                 </span>
               </div>
 
-              {subscription?.plan_type !== "pro" && (
+              <div className="flex justify-between items-center mt-2">
+                <span className="font-medium">Perfect Responses</span>
+                <span className="text-lg font-bold">
+                  {subscription?.perfect_response_limit === -1
+                    ? "Unlimited"
+                    : Math.max(
+                        0,
+                        (subscription?.perfect_response_limit || 0) -
+                          (subscription?.perfect_responses_used || 0),
+                      )}
+                  {subscription?.perfect_response_limit !== -1 &&
+                    ` / ${subscription?.perfect_response_limit || 0}`}
+                </span>
+              </div>
+
+              {subscription?.plan_type !== "premium" && (
                 <Button
                   onClick={() => navigate("/subscription")}
                   className="w-full mt-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
                 >
-                  Upgrade to Pro
+                  Upgrade to Premium
                 </Button>
               )}
             </div>
@@ -234,7 +265,10 @@ export default function DashboardPage() {
                           <span
                             className={`font-medium ${getScoreColor(response.feedback[0].score)}`}
                           >
-                            {response.feedback[0].score.toFixed(1)}/10
+                            {typeof response.feedback[0].score === "number"
+                              ? response.feedback[0].score.toFixed(1)
+                              : "N/A"}
+                            /10
                           </span>
                         ) : (
                           <span className="text-gray-400">Pending</span>

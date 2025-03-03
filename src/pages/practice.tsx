@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 import { useQuestions, QuestionFilters } from "@/lib/hooks/use-questions";
 import { useSubscription, useUsageStats } from "@/lib/hooks/use-subscription";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/components/ui/use-toast";
 import { Brain, MessageSquare, ArrowUpDown } from "lucide-react";
 import {
   Select,
@@ -49,13 +51,43 @@ export default function PracticePage() {
   // For admin user (omerhar2024@gmail.com), show all questions regardless of type
   const isAdmin = user?.email === "omerhar2024@gmail.com";
 
-  const handleSelectQuestion = (questionId: string, type: string) => {
+  const handleSelectQuestion = async (questionId: string, type: string) => {
     // Admin users (omerhar2024@gmail.com) bypass usage limits
-    // Check if user has reached the free tier limit (10 questions)
-    if (!isAdmin && usageCount >= 10 && subscription?.plan_type !== "pro") {
-      navigate("/subscription");
-      return;
+    if (!isAdmin) {
+      // Get the user's subscription and question limit
+      const { data: subscriptionData, error: subscriptionError } =
+        await supabase
+          .from("subscriptions")
+          .select("*")
+          .eq("user_id", user?.id)
+          .single();
+
+      if (subscriptionError) {
+        console.error("Error checking subscription:", subscriptionError);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to check subscription status. Please try again.",
+        });
+        return;
+      }
+
+      // Check if user has reached their question limit
+      const questionLimit = subscriptionData.question_limit;
+      if (questionLimit !== -1 && usageCount >= questionLimit) {
+        navigate("/subscription");
+        toast({
+          variant: "destructive",
+          title: "Usage Limit Reached",
+          description:
+            subscriptionData.plan_type === "free"
+              ? `You've reached your limit of ${questionLimit} questions. Please upgrade to Premium for more.`
+              : `You've reached your limit of ${questionLimit} questions. Please contact support for assistance.`,
+        });
+        return;
+      }
     }
+
     // For behavioral questions, go to behavioral recording
     // For product sense questions, go to preparation first
     const nextRoute =
@@ -77,20 +109,22 @@ export default function PracticePage() {
         <h1 className="text-4xl font-bold">Select a Question</h1>
       </div>
 
-      {!isAdmin && usageCount >= 10 && subscription?.plan_type !== "pro" && (
-        <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-8">
-          <p className="text-yellow-700">
-            You have reached your free tier limit of 10 questions. Please
-            upgrade to continue practicing.
-          </p>
-          <Button
-            onClick={() => navigate("/subscription")}
-            className="mt-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
-          >
-            Upgrade Now
-          </Button>
-        </div>
-      )}
+      {!isAdmin &&
+        usageCount >= 10 &&
+        subscription?.plan_type !== "premium" && (
+          <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-8">
+            <p className="text-yellow-700">
+              You have reached your free tier limit of 10 questions. Please
+              upgrade to continue practicing.
+            </p>
+            <Button
+              onClick={() => navigate("/subscription")}
+              className="mt-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
+            >
+              Upgrade Now
+            </Button>
+          </div>
+        )}
 
       {isAdmin && (
         <div className="bg-blue-100 border-l-4 border-blue-500 p-4 mb-8">

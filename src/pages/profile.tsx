@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { useSubscription } from "@/lib/hooks/use-subscription";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
@@ -14,7 +16,9 @@ export default function ProfilePage() {
   const [updating, setUpdating] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const { user } = useAuth();
+  const { data: subscription } = useSubscription();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -102,6 +106,43 @@ export default function ProfilePage() {
             value={new Date(profile?.created_at || "").toLocaleDateString()}
             disabled
           />
+        </div>
+
+        {/* Subscription Management Section */}
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">Subscription</h3>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/profile/subscription")}
+              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+            >
+              Manage Subscription
+            </Button>
+          </div>
+          <div className="bg-gray-50 p-4 rounded-lg border">
+            <div className="flex justify-between items-center">
+              <span>Current Plan:</span>
+              <span className="font-medium capitalize">
+                {subscription?.plan_type || "Free"}
+                {subscription?.status === "canceled" && " (Canceled)"}
+              </span>
+            </div>
+            {subscription?.plan_type === "premium" && (
+              <div className="flex justify-between items-center mt-2">
+                <span>
+                  {subscription?.status === "canceled"
+                    ? "Access Until:"
+                    : "Next Billing Date:"}
+                </span>
+                <span className="font-medium">
+                  {subscription?.end_date
+                    ? new Date(subscription.end_date).toLocaleDateString()
+                    : "N/A"}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

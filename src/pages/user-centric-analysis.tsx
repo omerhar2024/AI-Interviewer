@@ -125,9 +125,17 @@ export default function UserCentricAnalysisPage() {
               Your Response
             </h2>
             <div className="bg-white p-4 rounded-md border border-gray-100">
-              <FormattedText
-                text={response?.transcript || "No transcript available"}
-              />
+              {response?.notes?.formatted_response ? (
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: response.notes.formatted_response,
+                  }}
+                />
+              ) : (
+                <FormattedText
+                  text={response?.transcript || "No transcript available"}
+                />
+              )}
             </div>
           </Card>
         </div>

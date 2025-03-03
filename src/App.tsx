@@ -17,6 +17,7 @@ import ProductSenseRecordingPage from "@/pages/product-sense-recording";
 import ReviewPage from "@/pages/review";
 import ProfilePage from "@/pages/profile";
 import SubscriptionPage from "@/pages/subscription";
+import SubscriptionManagementPage from "@/pages/profile/subscription";
 import AuthCallback from "@/pages/auth/callback";
 import ChatPage from "@/pages/chat";
 import AnalysisPage from "@/pages/analysis";
@@ -28,13 +29,16 @@ import UserCentricAnalysisPage from "@/pages/user-centric-analysis";
 import ProgressPage from "@/pages/progress";
 import TestOpenAIPage from "@/pages/test-openai";
 import TestDeepseekPage from "@/pages/test-deepseek";
+import UserManagementPage from "@/pages/admin/user-management";
 
 // Lazy load admin pages
 const AdminDashboard = lazy(() => import("@/pages/admin"));
-const AdminUsersPage = lazy(() => import("@/pages/admin/users"));
 const AdminAnalyticsPage = lazy(() => import("@/pages/admin/analytics"));
 const AdminContentPage = lazy(() => import("@/pages/admin/content"));
 const AdminApiSettingsPage = lazy(() => import("@/pages/admin/api-settings"));
+const AdminUsageLimitsPage = lazy(() => import("@/pages/admin/usage-limits"));
+const FixDatabasePage = lazy(() => import("@/pages/admin/fix-database"));
+const FixUsersPage = lazy(() => import("@/pages/admin/fix-users"));
 
 function AppContent() {
   const location = useLocation();
@@ -223,6 +227,16 @@ function AppContent() {
             }
           />
           <Route
+            path="/profile/subscription"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <SubscriptionManagementPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/progress"
             element={
               <ProtectedRoute>
@@ -237,7 +251,7 @@ function AppContent() {
           <Route
             path="/admin"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requireAdmin={true}>
                 <AppLayout>
                   <AdminDashboard />
                 </AppLayout>
@@ -247,9 +261,9 @@ function AppContent() {
           <Route
             path="/admin/users"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requireAdmin={true}>
                 <AppLayout>
-                  <AdminUsersPage />
+                  <UserManagementPage />
                 </AppLayout>
               </ProtectedRoute>
             }
@@ -257,7 +271,7 @@ function AppContent() {
           <Route
             path="/admin/analytics"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requireAdmin={true}>
                 <AppLayout>
                   <AdminAnalyticsPage />
                 </AppLayout>
@@ -267,7 +281,7 @@ function AppContent() {
           <Route
             path="/admin/content"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requireAdmin={true}>
                 <AppLayout>
                   <AdminContentPage />
                 </AppLayout>
@@ -277,9 +291,39 @@ function AppContent() {
           <Route
             path="/admin/api-settings"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requireAdmin={true}>
                 <AppLayout>
                   <AdminApiSettingsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/usage-limits"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AppLayout>
+                  <AdminUsageLimitsPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/fix-database"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <FixDatabasePage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/fix-users"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <FixUsersPage />
                 </AppLayout>
               </ProtectedRoute>
             }

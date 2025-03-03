@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useIsAdmin } from "@/lib/hooks/use-admin";
-import { LogOut } from "lucide-react";
+import { LogOut, Shield } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 interface SidebarProps {
   activePath?: string;
@@ -10,7 +11,42 @@ interface SidebarProps {
 
 const Sidebar = ({ activePath = "/dashboard" }: SidebarProps) => {
   const { signOut, user } = useAuth();
-  const { data: isAdmin } = useIsAdmin();
+  const { data: isAdmin, isLoading, refetch } = useIsAdmin();
+  const [adminChecked, setAdminChecked] = useState(false);
+
+  // Force check admin status on mount
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (user) {
+        // Special case for omerhar2024@gmail.com
+        if (user.email === "omerhar2024@gmail.com") {
+          // Make sure this user is an admin in the database
+          await supabase
+            .from("users")
+            .update({ role: "admin" })
+            .eq("email", "omerhar2024@gmail.com");
+
+          // Refresh admin status in the hook
+          refetch();
+          return;
+        }
+
+        // For other users, check if they are admin directly from database
+        const { data, error } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        if (!error && data?.role === "admin") {
+          // Refresh admin status in the hook
+          refetch();
+        }
+      }
+    };
+
+    checkAdminStatus();
+  }, [user, refetch]);
 
   return (
     <div className="flex flex-col h-full bg-blue-50 w-[280px]">
@@ -240,27 +276,12 @@ const Sidebar = ({ activePath = "/dashboard" }: SidebarProps) => {
           isActive={activePath === "/profile"}
         />
 
-        {/* Admin Link - Only show for admin users */}
-        {isAdmin && (
+        {/* Admin Link - Show for admin users or omerhar2024@gmail.com */}
+        {(isAdmin || user?.email === "omerhar2024@gmail.com") && (
           <NavItem
             href="/admin"
             label="Admin"
-            icon={
-              <svg
-                className="h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M12 4.5C7 4.5 2.73 7.61 1 12C2.73 16.39 7 19.5 12 19.5C17 19.5 21.27 16.39 23 12C21.27 7.61 17 4.5 12 4.5ZM12 17C9.24 17 7 14.76 7 12C7 9.24 9.24 7 12 7C14.76 7 17 9.24 17 12C17 14.76 14.76 17 12 17ZM12 9C10.34 9 9 10.34 9 12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12C15 10.34 13.66 9 12 9Z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            }
+            icon={<Shield className="h-5 w-5 text-purple-600" />}
             isActive={activePath.startsWith("/admin")}
           />
         )}
@@ -270,34 +291,7 @@ const Sidebar = ({ activePath = "/dashboard" }: SidebarProps) => {
           className="flex items-center px-4 py-2 text-sm font-medium rounded-lg text-red-600 hover:bg-red-50 cursor-pointer"
         >
           <div className="mr-3 text-red-500">
-            <svg
-              className="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M16 17L21 12L16 7"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M21 12H9"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <LogOut className="h-5 w-5" />
           </div>
           Sign Out
         </div>
