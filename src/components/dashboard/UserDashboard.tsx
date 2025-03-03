@@ -2,7 +2,10 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useResponses } from "@/lib/hooks/use-responses";
-import { useSubscription, useUsageStats } from "@/lib/hooks/use-subscription";
+import {
+  useSubscriptionSafe,
+  useUsageStatsSafe,
+} from "@/lib/hooks/use-subscription-safe";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -12,9 +15,10 @@ import GamificationWidget from "./GamificationWidget";
 const UserDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: subscription } = useSubscription();
+  // Use safe versions of the hooks that won't cause 502 errors
+  const { data: subscription } = useSubscriptionSafe();
   const { data: usageStats = { used: 0, total: 10 }, isLoading: statsLoading } =
-    useUsageStats();
+    useUsageStatsSafe();
   const { data: recentResponses = [], isLoading: responsesLoading } =
     useResponses(5);
 

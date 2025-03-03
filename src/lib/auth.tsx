@@ -36,11 +36,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = {
     signUp: async (email: string, password: string) => {
-      const { error } = await supabase.auth.signUp({
+      const { error, data } = await supabase.auth.signUp({
         email,
         password,
       });
       if (error) throw error;
+
+      // Manually create user and subscription records if the trigger fails
+      if (data.user) {
+        try {
+          // Create user record
+          const { error: userError } = await supabase.from("users").insert({
+            id: data.user.id,
+            email: data.user.email,
+            role: "free",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+
+          if (!userError) {
+            // Create subscription record
+            await supabase.from("subscriptions").insert({
+              user_id: data.user.id,
+              plan_type: "free",
+              start_date: new Date().toISOString(),
+              end_date: null,
+              status: "active",
+              question_limit: 10,
+              perfect_response_limit: 5,
+              perfect_responses_used: 0,
+            });
+          }
+        } catch (err) {
+          console.error("Error creating user records:", err);
+          // Continue even if there's an error, as the user might still be created in Auth
+        }
+      }
     },
     signIn: async (email: string, password: string) => {
       const { error } = await supabase.auth.signInWithPassword({

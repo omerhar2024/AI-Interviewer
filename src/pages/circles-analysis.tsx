@@ -125,9 +125,17 @@ export default function CirclesAnalysisPage() {
               Your Response
             </h2>
             <div className="bg-white p-4 rounded-md border border-gray-100">
-              <FormattedText
-                text={response?.transcript || "No transcript available"}
-              />
+              {response?.notes?.formatted_response ? (
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: response.notes.formatted_response,
+                  }}
+                />
+              ) : (
+                <FormattedText
+                  text={response?.transcript || "No transcript available"}
+                />
+              )}
             </div>
           </Card>
         </div>
@@ -154,7 +162,7 @@ export default function CirclesAnalysisPage() {
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-md border border-blue-100 whitespace-pre-line overflow-auto max-h-[600px]">
+            <div className="bg-white p-4 rounded-md border border-blue-100 overflow-auto max-h-[600px]">
               {feedback?.text || "No analysis available yet."}
             </div>
 

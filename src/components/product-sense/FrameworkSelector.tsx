@@ -51,9 +51,56 @@ export function FrameworkSelector({
     onSubmit(selectedFramework, responses[selectedFramework] || {});
   };
 
+  const [progressPercent, setProgressPercent] = useState(0);
+
   const handlePerfectResponse = async () => {
     try {
+      // Check if user has remaining perfect responses
+      const { data: subscriptionData, error: subscriptionError } =
+        await supabase
+          .from("subscriptions")
+          .select("*")
+          .eq("user_id", user?.id)
+          .single();
+
+      if (subscriptionError) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to check subscription status. Please try again.",
+        });
+        return;
+      }
+
+      // If user has reached their limit
+      if (
+        subscriptionData.perfect_responses_used >=
+        subscriptionData.perfect_response_limit
+      ) {
+        toast({
+          variant: "destructive",
+          title: "Limit Reached",
+          description:
+            subscriptionData.plan_type === "free"
+              ? "You've reached your monthly limit of 5 perfect responses. Please upgrade to Premium for more."
+              : "You've reached your monthly limit of perfect responses. Please try again next month.",
+        });
+        return;
+      }
+
       setIsGenerating(true);
+      setProgressPercent(0);
+
+      // Start progress animation
+      const progressInterval = setInterval(() => {
+        setProgressPercent((prev) => {
+          // Gradually increase progress up to 95% (the last 5% will be completed when response is received)
+          if (prev < 95) {
+            return prev + 1;
+          }
+          return prev;
+        });
+      }, 630); // Update every 630ms to complete in ~60 seconds
 
       // Get framework-specific scoring criteria
       let scoringCriteria = "";
@@ -99,12 +146,7 @@ export function FrameworkSelector({
       }
 
       // Generate a perfect response using DeepSeek with scoring criteria
-      const prompt = `Generate a perfect response to the following product sense question using the ${getFrameworkName(selectedFramework)} framework.\n\nQuestion: ${questionText}\n\nPlease structure your response according to the ${getFrameworkName(selectedFramework)} framework sections and provide detailed, thoughtful content for each section.\n\nTo score highly, ensure your response includes these elements for each section:\n${scoringCriteria}\n\nVERY IMPORTANT FORMATTING INSTRUCTIONS:\n1. DO NOT use any markdown formatting like #, *, |, or other special characters
-2. Format each section with a simple section name followed by a colon, then your content (e.g. "Comprehend: Your detailed content here")
-3. Use plain text only with clear paragraph breaks between ideas
-4. For comparisons or evaluations, use simple numbered lists instead of tables
-5. Include specific examples, data points, and concrete details throughout your response
-6. Aim for a response that would score 9-10/10 on each component`;
+      const prompt = `Generate an ABSOLUTELY PERFECT response to the following product sense question using the ${getFrameworkName(selectedFramework)} framework. Your goal is to achieve a PERFECT 10/10 score on EVERY component - nothing less is acceptable.\n\nQuestion: ${questionText}\n\nPlease structure your response according to the ${getFrameworkName(selectedFramework)} framework sections and provide extremely detailed, thoughtful content for each section.\n\nTo score a PERFECT 10/10 on each component, ensure your response includes these elements for each section:\n${scoringCriteria}\n\nABSOLUTELY CRITICAL FORMATTING INSTRUCTIONS:\n1. DO NOT use ANY markdown formatting - no #, *, **, |, or other special characters anywhere in your response\n2. Format each section with a simple section name followed by a colon, then your content (e.g. "Comprehend: Your detailed content here")\n3. Use plain text only with clear paragraph breaks between ideas\n4. For the Evaluate section or any comparisons, use this EXACT format with NO special characters:\n\nEvaluate: I've assessed the potential solutions based on key factors:\n\n1. [Solution Name]\n   Cost: [Low/Medium/High] - [Brief explanation]\n   Feasibility: [Low/Medium/High] - [Brief explanation]\n   Impact: [Low/Medium/High] - [Brief explanation]\n\n2. [Solution Name]\n   Cost: [Low/Medium/High] - [Brief explanation]\n   Feasibility: [Low/Medium/High] - [Brief explanation]\n   Impact: [Low/Medium/High] - [Brief explanation]\n\n5. Include SPECIFIC examples, data points, and concrete details throughout your response\n6. Your goal is to create a response that would score a PERFECT 10/10 on EVERY component\n7. Think deeply about each section and provide comprehensive, insightful analysis that demonstrates expert product management thinking\n8. IMPORTANT: After generating your response, review it carefully to remove ANY markdown or special characters that might have been included`;
 
       const result = await deepseek.chat.completions.create({
         model: "deepseek-chat",
@@ -112,17 +154,88 @@ export function FrameworkSelector({
           {
             role: "system",
             content:
-              "You are an expert product manager who excels at answering product sense questions using various frameworks. Your responses are detailed, specific, and include concrete examples and data points. You write in plain text without using markdown formatting or special characters. You structure your responses clearly with simple section headers followed by detailed content.",
+              "You are a WORLD-CLASS product manager with 15+ years of experience at top tech companies. You excel at answering product sense questions using various frameworks. Your responses are extremely detailed, specific, and include concrete examples, metrics, and data points. You ABSOLUTELY NEVER use markdown formatting or special characters like *, #, **, or | in your responses. You structure your responses with clear section headers followed by comprehensive content. You aim for perfection in every response, with nothing less than 9-10/10 scores acceptable. You carefully review your responses to ensure they contain no special characters and are formatted exactly as requested.",
           },
           { role: "user", content: prompt },
         ],
-        temperature: 0.5,
-        max_tokens: 3000,
+        temperature: 0.8,
+        max_tokens: 3500,
       });
 
-      const aiResponse = result.choices[0].message.content;
+      // Get the response and clean it to ensure no markdown or special characters
+      let aiResponse = result.choices[0].message.content;
 
-      // Create a response in the database with AI-generated flag
+      // Remove any potential markdown characters that might have slipped through
+      aiResponse = aiResponse.replace(/[#*|`_~>]/g, "");
+      aiResponse = aiResponse.replace(/\*\*/g, "");
+      aiResponse = aiResponse.replace(/\n\s*\n\s*\n/g, "\n\n"); // Replace triple line breaks with double
+
+      // Format section headers for better visual display
+      // This formatting will be applied when displaying the response
+      const sectionHeaders = {
+        circles: [
+          "Comprehend:",
+          "Identify:",
+          "Report:",
+          "Cut:",
+          "List:",
+          "Evaluate:",
+          "Summarize:",
+        ],
+        "design-thinking": [
+          "Empathize:",
+          "Define:",
+          "Ideate:",
+          "Prototype:",
+          "Test:",
+        ],
+        jtbd: [
+          "Identify the Job:",
+          "Current Solutions:",
+          "Functional Requirements:",
+          "Emotional and Social Needs:",
+          "Proposed Solution:",
+          "Validation:",
+        ],
+        "user-centric": [
+          "Understand Context:",
+          "Specify User Requirements:",
+          "Design Solution:",
+          "Evaluate:",
+        ],
+      };
+
+      // Get the appropriate headers based on the framework
+      const headers = sectionHeaders[selectedFramework] || [];
+
+      // Add HTML formatting for section headers
+      let formattedResponse = aiResponse;
+      headers.forEach((header) => {
+        formattedResponse = formattedResponse.replace(
+          new RegExp(`${header}`, "g"),
+          `<strong>${header}</strong>`,
+        );
+      });
+
+      // Improve formatting for numbered lists in the Evaluate section
+      formattedResponse = formattedResponse.replace(
+        /(\d+\.\s+)([^\n]+)/g,
+        '<div class="mt-4 mb-2 font-semibold">$1$2</div>',
+      );
+
+      // Add proper indentation for evaluation criteria
+      formattedResponse = formattedResponse.replace(
+        /(Cost|Feasibility|Impact):\s+(Low|Medium|High)\s+-\s+([^\n]+)/g,
+        '<div class="ml-6 mb-2"><span class="font-medium">$1:</span> <span class="font-semibold">$2</span> - $3</div>',
+      );
+
+      // Add spacing between paragraphs
+      formattedResponse = formattedResponse.replace(
+        /\n\n/g,
+        '<div class="my-4"></div>',
+      );
+
+      // Create a response in the database with AI-generated flag and formatted response
       const { data: responseData, error: responseError } = await supabase
         .from("responses")
         .insert({
@@ -130,7 +243,11 @@ export function FrameworkSelector({
           question_id: questionId,
           audio_url: "",
           transcript: aiResponse,
-          notes: { framework: selectedFramework, is_ai_generated: true },
+          notes: {
+            framework: selectedFramework,
+            is_ai_generated: true,
+            formatted_response: formattedResponse,
+          },
         })
         .select()
         .single();
@@ -159,6 +276,21 @@ export function FrameworkSelector({
 
         if (feedbackError) throw feedbackError;
 
+        // Increment the perfect responses used counter
+        const { error: updateError } = await supabase
+          .from("subscriptions")
+          .update({
+            perfect_responses_used: subscriptionData.perfect_responses_used + 1,
+          })
+          .eq("user_id", user?.id);
+
+        if (updateError) {
+          console.error(
+            "Failed to update perfect response usage:",
+            updateError,
+          );
+        }
+
         // Navigate to the appropriate analysis page based on framework
         switch (selectedFramework) {
           case "circles":
@@ -185,7 +317,11 @@ export function FrameworkSelector({
         description: "Failed to generate a perfect response. Please try again.",
       });
     } finally {
-      setIsGenerating(false);
+      setProgressPercent(100); // Complete the progress bar
+      setTimeout(() => {
+        setIsGenerating(false);
+        setProgressPercent(0);
+      }, 500); // Reset after a short delay
     }
   };
 
@@ -516,20 +652,31 @@ export function FrameworkSelector({
           Save Notes
         </button>
 
-        <button
-          onClick={handlePerfectResponse}
-          disabled={isAnalyzing || isGenerating}
-          className="px-6 py-3 bg-white border border-purple-200 text-purple-600 font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center"
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Generating...
-            </>
-          ) : (
-            "Perfect Response"
+        <div className="relative">
+          <button
+            onClick={handlePerfectResponse}
+            disabled={isAnalyzing || isGenerating}
+            className="px-6 py-3 bg-white border border-purple-200 text-purple-600 font-medium rounded-lg shadow-sm hover:shadow-md transition-all duration-200 flex items-center"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Perfect Response
+              </>
+            ) : (
+              "Perfect Response"
+            )}
+          </button>
+
+          {isGenerating && (
+            <div className="absolute left-0 bottom-0 w-full h-1 bg-gray-200 rounded-b-lg overflow-hidden">
+              <div
+                className="h-full bg-purple-600 transition-all duration-300 ease-in-out"
+                style={{ width: `${progressPercent}%` }}
+              ></div>
+            </div>
           )}
-        </button>
+        </div>
 
         <button
           onClick={handleSubmitForAnalysis}

@@ -5,23 +5,15 @@ interface FormattedTextProps {
 }
 
 export function FormattedText({ text }: FormattedTextProps) {
-  const formatText = (text: string) => {
-    return text.split("\n").map((line, i) => {
-      if (
-        line.startsWith("Situation") ||
-        line.startsWith("Task") ||
-        line.startsWith("Action") ||
-        line.startsWith("Result")
-      ) {
-        return (
-          <div key={i} className="font-bold">
-            {line}
-          </div>
-        );
-      }
-      return <div key={i}>{line}</div>;
-    });
-  };
+  if (!text) return null;
 
-  return <div className="whitespace-pre-wrap">{formatText(text)}</div>;
+  // Convert newlines to <br> tags
+  const formattedText = text.split("\n").map((line, i) => (
+    <React.Fragment key={i}>
+      {line}
+      {i < text.split("\n").length - 1 && <br />}
+    </React.Fragment>
+  ));
+
+  return <div className="whitespace-pre-wrap">{formattedText}</div>;
 }
