@@ -418,12 +418,44 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      update_subscription_direct: {
+        Args: {
+          p_user_id: string
+          p_plan_type: string
+          p_status?: string
+        }
+        Returns: boolean
+      }
       update_user_role: {
         Args: {
           p_user_id: string
           p_role: string
         }
         Returns: undefined
+      }
+      update_user_role_safe: {
+        Args: {
+          p_user_id: string
+          p_role: string
+        }
+        Returns: boolean
+      }
+      update_user_subscription_safe: {
+        Args: {
+          p_user_id: string
+          p_plan_type: string
+          p_status?: string
+        }
+        Returns: boolean
+      }
+      update_user_with_subscription: {
+        Args: {
+          p_user_id: string
+          p_role: string
+          p_plan_type: string
+          p_status?: string
+        }
+        Returns: Json
       }
     }
     Enums: {
