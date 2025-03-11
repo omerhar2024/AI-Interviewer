@@ -166,6 +166,17 @@ export async function updateUserRole(
 
     // 2. Update user role in users table - preserve admin status if it exists
     const roleToSet = isAdmin ? "admin" : newRole;
+    // Also update subscription_plan based on role
+    const subscriptionPlan =
+      newRole === "premium" || isAdmin ? "premium" : "free";
+    // Set subscription end date for premium users
+    const subscriptionEndDate =
+      newRole === "premium" || isAdmin
+        ? new Date(
+            new Date().setFullYear(new Date().getFullYear() + 1),
+          ).toISOString()
+        : null;
+
     let userUpdateSuccess = false;
 
     // If user doesn't exist in profiles table, create them
@@ -189,6 +200,8 @@ export async function updateUserRole(
         id: userId,
         email: userEmail,
         role: roleToSet,
+        subscription_plan: subscriptionPlan,
+        subscription_end_date: subscriptionEndDate,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
@@ -204,7 +217,12 @@ export async function updateUserRole(
       try {
         const { error: adminUpdateError } = await supabaseAdmin
           .from("users")
-          .update({ role: roleToSet, updated_at: new Date().toISOString() })
+          .update({
+            role: roleToSet,
+            subscription_plan: subscriptionPlan,
+            subscription_end_date: subscriptionEndDate,
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", userId);
 
         if (!adminUpdateError) {
@@ -217,7 +235,11 @@ export async function updateUserRole(
           if (adminUpdateError.message?.includes("updated_at")) {
             const { error: fallbackError } = await supabaseAdmin
               .from("users")
-              .update({ role: roleToSet })
+              .update({
+                role: roleToSet,
+                subscription_plan: subscriptionPlan,
+                subscription_end_date: subscriptionEndDate,
+              })
               .eq("id", userId);
 
             if (!fallbackError) {

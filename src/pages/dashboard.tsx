@@ -10,6 +10,9 @@ import {
   useSubscriptionSafe,
   useUsageStatsSafe,
 } from "@/lib/hooks/use-subscription-safe";
+import { useUsageLimits } from "@/lib/hooks/use-usage-limits";
+import { hasPremiumAccess } from "@/lib/subscription-utils";
+import { usePlan } from "@/context/PlanContext";
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -19,6 +22,23 @@ export default function DashboardPage() {
   // Use safe versions of the hooks that won't cause 502 errors
   const { data: subscription } = useSubscriptionSafe();
   const { data: usageStats } = useUsageStatsSafe();
+  const { data: usageLimits } = useUsageLimits();
+
+  // Get plan data from context
+  const planContext = usePlan();
+
+  // Use context data or fallback to local calculation
+  const isPremium =
+    planContext.isPremium ||
+    hasPremiumAccess(
+      user
+        ? {
+            ...user,
+            subscriptions: subscription ? [subscription] : [],
+            role: user.role || "free",
+          }
+        : null,
+    );
 
   useEffect(() => {
     const fetchRecentResponses = async () => {
@@ -45,7 +65,7 @@ export default function DashboardPage() {
     if (user) fetchRecentResponses();
   }, [user]);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return "";
@@ -167,19 +187,20 @@ export default function DashboardPage() {
               <div className="flex justify-between items-center">
                 <span className="font-medium">Current Plan</span>
                 <span className="text-lg font-bold capitalize">
-                  {subscription?.plan_type || "Free"}
+                  {planContext.subscription_plan === "premium" || isPremium
+                    ? "Premium"
+                    : "Free"}
                 </span>
               </div>
 
               <div className="flex justify-between items-center">
                 <span className="font-medium">Questions Remaining</span>
                 <span className="text-lg font-bold">
-                  {subscription?.question_limit === -1
+                  {planContext.question_limit === -1
                     ? "Unlimited"
                     : Math.max(
                         0,
-                        (subscription?.question_limit || 0) -
-                          (usageStats?.used || 0),
+                        planContext.question_limit - planContext.questions_used,
                       )}
                 </span>
               </div>
@@ -187,19 +208,20 @@ export default function DashboardPage() {
               <div className="flex justify-between items-center mt-2">
                 <span className="font-medium">Perfect Responses</span>
                 <span className="text-lg font-bold">
-                  {subscription?.perfect_response_limit === -1
+                  {planContext.perfect_response_limit === -1
                     ? "Unlimited"
                     : Math.max(
                         0,
-                        (subscription?.perfect_response_limit || 0) -
-                          (subscription?.perfect_responses_used || 0),
+                        planContext.perfect_response_limit -
+                          planContext.perfect_responses_used,
                       )}
-                  {subscription?.perfect_response_limit !== -1 &&
-                    ` / ${subscription?.perfect_response_limit || 0}`}
+                  {subscription?.plan_type !== "premium" &&
+                    !isPremium &&
+                    ` / ${usageLimits?.free?.perfect_response_limit || 5}`}
                 </span>
               </div>
 
-              {subscription?.plan_type !== "premium" && (
+              {subscription?.plan_type !== "premium" && !isPremium && (
                 <Button
                   onClick={() => navigate("/subscription")}
                   className="w-full mt-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
@@ -207,6 +229,15 @@ export default function DashboardPage() {
                   Upgrade to Premium
                 </Button>
               )}
+
+              {/* Show subscription status if canceled */}
+              {subscription?.status === "canceled" &&
+                subscription?.end_date && (
+                  <div className="text-xs text-center text-amber-600 font-medium mt-2">
+                    Premium access until{" "}
+                    {new Date(subscription.end_date).toLocaleDateString()}
+                  </div>
+                )}
             </div>
           </CardContent>
         </Card>

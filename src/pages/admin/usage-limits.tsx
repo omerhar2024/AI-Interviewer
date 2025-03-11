@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
@@ -6,24 +6,346 @@ import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Save, Users, Zap } from "lucide-react";
+import { ArrowLeft, Save, RefreshCw, Users, Zap } from "lucide-react";
+import { useIsAdmin } from "@/lib/hooks/use-admin";
+
+// Define default values
+const DEFAULT_FREE_PERFECT_RESPONSES = 20;
+const DEFAULT_FREE_QUESTIONS = 30;
+const DEFAULT_PREMIUM_PERFECT_RESPONSES = 200;
+const DEFAULT_PREMIUM_QUESTIONS = -1;
 
 export default function UsageLimitsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { data: isAdmin } = useIsAdmin();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [usageLimits, setUsageLimits] = useState<any[]>([]);
 
-  // Default limits
-  const [freePerfectResponses, setFreePerfectResponses] = useState(5);
-  const [premiumPerfectResponses, setPremiumPerfectResponses] = useState(50);
-  const [freeQuestions, setFreeQuestions] = useState(10);
-  const [premiumQuestions, setPremiumQuestions] = useState(-1); // -1 means unlimited
+  // Use refs to store input values
+  const freePerfectResponsesRef = useRef<HTMLInputElement>(null);
+  const freeQuestionsRef = useRef<HTMLInputElement>(null);
+  const premiumPerfectResponsesRef = useRef<HTMLInputElement>(null);
+  const premiumQuestionsRef = useRef<HTMLInputElement>(null);
 
-  // Only admin users should access this page
-  const isAdmin = user?.email === "omerhar2024@gmail.com";
+  // Track if the component is mounted
+  const isMounted = useRef(false);
 
+  // Define all hooks at the top level
+  const [freePlan, setFreePlan] = useState({
+    perfect_response_limit: DEFAULT_FREE_PERFECT_RESPONSES,
+    question_limit: DEFAULT_FREE_QUESTIONS,
+  });
+
+  const [premiumPlan, setPremiumPlan] = useState({
+    perfect_response_limit: DEFAULT_PREMIUM_PERFECT_RESPONSES,
+    question_limit: DEFAULT_PREMIUM_QUESTIONS,
+  });
+
+  // Fetch usage limits from the database
+  const fetchUsageLimits = async () => {
+    console.log("Fetching usage limits...");
+    try {
+      setLoading(true);
+      // Use admin client for better permissions
+      const { data, error } = await supabase
+        .from("usage_limits")
+        .select("*")
+        .order("plan_type", { ascending: true });
+
+      if (error) {
+        console.error("Error fetching usage limits:", error);
+        throw error;
+      }
+
+      console.log("Fetched usage limits:", data);
+
+      if (data && data.length > 0) {
+        setUsageLimits(data);
+
+        // Update free and premium plan states
+        const foundFreePlan = data.find((limit) => limit.plan_type === "free");
+        const foundPremiumPlan = data.find(
+          (limit) => limit.plan_type === "premium",
+        );
+
+        if (foundFreePlan) {
+          setFreePlan(foundFreePlan);
+        }
+
+        if (foundPremiumPlan) {
+          setPremiumPlan(foundPremiumPlan);
+        }
+      } else {
+        // If no data, create default plans
+        const defaultPlans = [
+          {
+            plan_type: "free",
+            perfect_response_limit: DEFAULT_FREE_PERFECT_RESPONSES,
+            question_limit: DEFAULT_FREE_QUESTIONS,
+          },
+          {
+            plan_type: "premium",
+            perfect_response_limit: DEFAULT_PREMIUM_PERFECT_RESPONSES,
+            question_limit: DEFAULT_PREMIUM_QUESTIONS,
+          },
+        ];
+        setUsageLimits(defaultPlans);
+        setFreePlan(defaultPlans[0]);
+        setPremiumPlan(defaultPlans[1]);
+      }
+    } catch (error) {
+      console.error("Error fetching usage limits:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load usage limits. Please try again.",
+      });
+
+      // Set default values if fetch fails
+      const defaultPlans = [
+        {
+          plan_type: "free",
+          perfect_response_limit: DEFAULT_FREE_PERFECT_RESPONSES,
+          question_limit: DEFAULT_FREE_QUESTIONS,
+        },
+        {
+          plan_type: "premium",
+          perfect_response_limit: DEFAULT_PREMIUM_PERFECT_RESPONSES,
+          question_limit: DEFAULT_PREMIUM_QUESTIONS,
+        },
+      ];
+      setUsageLimits(defaultPlans);
+      setFreePlan(defaultPlans[0]);
+      setPremiumPlan(defaultPlans[1]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle saving changes
+  const handleSaveChanges = async () => {
+    try {
+      setSaving(true);
+
+      // Check if component is still mounted
+      if (!isMounted.current) {
+        throw new Error("Component is not mounted");
+      }
+
+      // Get values from refs instead of direct DOM access
+      if (
+        !freePerfectResponsesRef.current ||
+        !freeQuestionsRef.current ||
+        !premiumPerfectResponsesRef.current ||
+        !premiumQuestionsRef.current
+      ) {
+        throw new Error("Input fields not properly initialized");
+      }
+
+      const freePerfectResponses = freePerfectResponsesRef.current.value;
+      const freeQuestions = freeQuestionsRef.current.value;
+      const premiumPerfectResponses = premiumPerfectResponsesRef.current.value;
+      const premiumQuestions = premiumQuestionsRef.current.value;
+
+      console.log("Saving values:", {
+        freePerfectResponses,
+        freeQuestions,
+        premiumPerfectResponses,
+        premiumQuestions,
+      });
+
+      // Create free plan update data
+      const freeUpdateData = {
+        perfect_response_limit: parseInt(freePerfectResponses),
+        question_limit: parseInt(freeQuestions),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Create premium plan update data
+      const premiumUpdateData = {
+        perfect_response_limit: parseInt(premiumPerfectResponses),
+        question_limit: parseInt(premiumQuestions),
+        updated_at: new Date().toISOString(),
+      };
+
+      console.log("Free update data:", freeUpdateData);
+      console.log("Premium update data:", premiumUpdateData);
+
+      // First check if free plan exists
+      const { data: existingFreePlan, error: freeFetchError } = await supabase
+        .from("usage_limits")
+        .select("*")
+        .eq("plan_type", "free")
+        .maybeSingle();
+
+      if (freeFetchError) {
+        console.error("Error fetching free plan:", freeFetchError);
+        throw freeFetchError;
+      }
+
+      let freeData;
+      let freeError;
+
+      if (existingFreePlan) {
+        // Update existing record
+        console.log(
+          "Updating existing free plan with ID:",
+          existingFreePlan.id,
+        );
+        const result = await supabase
+          .from("usage_limits")
+          .update(freeUpdateData)
+          .eq("id", existingFreePlan.id)
+          .select();
+
+        freeData = result.data;
+        freeError = result.error;
+      } else {
+        // Insert new record if it doesn't exist
+        console.log("Creating new free plan record");
+        const result = await supabase
+          .from("usage_limits")
+          .insert({
+            plan_type: "free",
+            ...freeUpdateData,
+          })
+          .select();
+
+        freeData = result.data;
+        freeError = result.error;
+      }
+
+      if (freeError) {
+        console.error("Free plan update error:", freeError);
+        throw freeError;
+      }
+
+      console.log("Free plan update response:", freeData);
+
+      // First check if premium plan exists
+      const { data: existingPremiumPlan, error: premiumFetchError } =
+        await supabase
+          .from("usage_limits")
+          .select("*")
+          .eq("plan_type", "premium")
+          .maybeSingle();
+
+      if (premiumFetchError) {
+        console.error("Error fetching premium plan:", premiumFetchError);
+        throw premiumFetchError;
+      }
+
+      let premiumData;
+      let premiumError;
+
+      if (existingPremiumPlan) {
+        // Update existing record
+        console.log(
+          "Updating existing premium plan with ID:",
+          existingPremiumPlan.id,
+        );
+        const result = await supabase
+          .from("usage_limits")
+          .update(premiumUpdateData)
+          .eq("id", existingPremiumPlan.id)
+          .select();
+
+        premiumData = result.data;
+        premiumError = result.error;
+      } else {
+        // Insert new record if it doesn't exist
+        console.log("Creating new premium plan record");
+        const result = await supabase
+          .from("usage_limits")
+          .insert({
+            plan_type: "premium",
+            ...premiumUpdateData,
+          })
+          .select();
+
+        premiumData = result.data;
+        premiumError = result.error;
+      }
+
+      if (premiumError) {
+        console.error("Premium plan update error:", premiumError);
+        throw premiumError;
+      }
+
+      console.log("Premium plan update response:", premiumData);
+
+      // Update state with new values
+      const newFreePlan =
+        freeData && freeData.length > 0
+          ? freeData[0]
+          : { ...freePlan, ...freeUpdateData };
+
+      const newPremiumPlan =
+        premiumData && premiumData.length > 0
+          ? premiumData[0]
+          : { ...premiumPlan, ...premiumUpdateData };
+
+      // Update state
+      setFreePlan(newFreePlan);
+      setPremiumPlan(newPremiumPlan);
+
+      // Update usage limits array
+      setUsageLimits([newFreePlan, newPremiumPlan]);
+
+      // Call ensure_usage_limits to make sure the database has the latest values
+      try {
+        const { error: ensureError } = await supabase.rpc(
+          "ensure_usage_limits",
+        );
+        if (ensureError) {
+          console.error("Error ensuring usage limits:", ensureError);
+        } else {
+          console.log("Usage limits ensured in database");
+        }
+      } catch (ensureError) {
+        console.error("Exception ensuring usage limits:", ensureError);
+      }
+
+      // Force a refresh of the usage limits in the query cache
+      try {
+        const { queryClient } = await import("@/lib/query-client");
+        await queryClient.invalidateQueries({ queryKey: ["usage-limits"] });
+        console.log("Invalidated usage-limits query cache");
+
+        // Wait a moment for the cache to clear
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // Refetch to ensure we have the latest data
+        await queryClient.refetchQueries({ queryKey: ["usage-limits"] });
+        console.log("Refetched usage-limits query");
+      } catch (cacheError) {
+        console.error("Error refreshing query cache:", cacheError);
+      }
+
+      // Fetch the updated limits to confirm changes were saved
+      await fetchUsageLimits();
+
+      toast({
+        title: "Success",
+        description: `Usage limits updated successfully. Free Plan: ${freePerfectResponses} perfect responses, ${freeQuestions} questions. Premium Plan: ${premiumPerfectResponses} perfect responses, ${premiumQuestions === "-1" ? "unlimited" : premiumQuestions} questions.`,
+      });
+    } catch (error) {
+      console.error("Error updating usage limits:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to update usage limits: ${error.message || "Please try again"}`,
+      });
+      console.error("Detailed error:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Initialize component and fetch data
   useEffect(() => {
     // Redirect non-admin users
     if (user && !isAdmin) {
@@ -33,134 +355,67 @@ export default function UsageLimitsPage() {
         title: "Access Denied",
         description: "You don't have permission to access this page.",
       });
-    }
-
-    const fetchLimits = async () => {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase.from("usage_limits").select("*");
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          // Set values from database
-          const freeLimits = data.find((item) => item.plan_type === "free");
-          const premiumLimits = data.find(
-            (item) => item.plan_type === "premium",
-          );
-
-          if (freeLimits) {
-            setFreePerfectResponses(freeLimits.perfect_response_limit);
-            setFreeQuestions(freeLimits.question_limit);
-          }
-
-          if (premiumLimits) {
-            setPremiumPerfectResponses(premiumLimits.perfect_response_limit);
-            setPremiumQuestions(premiumLimits.question_limit);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching usage limits:", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to load usage limits. Please try again.",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (isAdmin) {
-      fetchLimits();
-    }
-  }, [user, isAdmin, navigate, toast]);
-
-  const handleSave = async () => {
-    try {
-      setSaving(true);
-
-      // Upsert free plan limits
-      const { error: freeError } = await supabase.from("usage_limits").upsert(
-        {
-          plan_type: "free",
-          perfect_response_limit: freePerfectResponses,
-          question_limit: freeQuestions,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "plan_type" },
-      );
-
-      if (freeError) throw freeError;
-
-      // Upsert premium plan limits
-      const { error: premiumError } = await supabase
-        .from("usage_limits")
-        .upsert(
-          {
-            plan_type: "premium",
-            perfect_response_limit: premiumPerfectResponses,
-            question_limit: premiumQuestions,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "plan_type" },
-        );
-
-      if (premiumError) throw premiumError;
-
-      toast({
-        title: "Success",
-        description: "Usage limits updated successfully.",
-      });
-    } catch (error) {
-      console.error("Error saving usage limits:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to save usage limits. Please try again.",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleResetUsage = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to reset all users' monthly usage counters? This will reset perfect response usage for all users.",
-      )
-    ) {
       return;
     }
 
-    try {
-      setSaving(true);
+    fetchUsageLimits();
+    isMounted.current = true;
 
-      // Call the reset_monthly_usage function
-      const { error } = await supabase.rpc("reset_monthly_usage");
+    return () => {
+      isMounted.current = false;
+    };
+  }, [user, isAdmin, navigate, toast]);
 
-      if (error) throw error;
+  // Update input refs when plan data changes
+  useEffect(() => {
+    if (!isMounted.current) return;
 
-      toast({
-        title: "Success",
-        description: "Monthly usage has been reset for all users.",
-      });
-    } catch (error) {
-      console.error("Error resetting usage:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to reset usage. Please try again.",
-      });
-    } finally {
-      setSaving(false);
+    if (freePerfectResponsesRef.current) {
+      freePerfectResponsesRef.current.value =
+        freePlan.perfect_response_limit.toString();
+      console.log(
+        "Updated free perfect responses input to:",
+        freePerfectResponsesRef.current.value,
+      );
     }
-  };
 
+    if (freeQuestionsRef.current) {
+      freeQuestionsRef.current.value = freePlan.question_limit.toString();
+      console.log(
+        "Updated free questions input to:",
+        freeQuestionsRef.current.value,
+      );
+    }
+  }, [freePlan]);
+
+  // Update premium plan input refs when plan data changes
+  useEffect(() => {
+    if (!isMounted.current) return;
+
+    if (premiumPerfectResponsesRef.current) {
+      premiumPerfectResponsesRef.current.value =
+        premiumPlan.perfect_response_limit.toString();
+      console.log(
+        "Updated premium perfect responses input to:",
+        premiumPerfectResponsesRef.current.value,
+      );
+    }
+
+    if (premiumQuestionsRef.current) {
+      premiumQuestionsRef.current.value = premiumPlan.question_limit.toString();
+      console.log(
+        "Updated premium questions input to:",
+        premiumQuestionsRef.current.value,
+      );
+    }
+  }, [premiumPlan]);
+
+  // Early return for non-admin users
   if (!isAdmin) {
-    return null; // Don't render anything for non-admin users
+    return null;
   }
 
+  // Show loading state
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -168,6 +423,10 @@ export default function UsageLimitsPage() {
       </div>
     );
   }
+
+  // Debug log to check if plans are loaded correctly
+  console.log("Free plan state:", freePlan);
+  console.log("Premium plan state:", premiumPlan);
 
   return (
     <div className="w-full p-6 mx-auto max-w-7xl">
@@ -198,22 +457,20 @@ export default function UsageLimitsPage() {
                 Perfect Responses per Month
               </label>
               <Input
+                ref={freePerfectResponsesRef}
                 type="number"
                 min="0"
-                value={freePerfectResponses}
-                onChange={(e) =>
-                  setFreePerfectResponses(parseInt(e.target.value))
-                }
+                defaultValue={freePlan.perfect_response_limit}
               />
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Questions per Month</label>
               <Input
+                ref={freeQuestionsRef}
                 type="number"
                 min="0"
-                value={freeQuestions}
-                onChange={(e) => setFreeQuestions(parseInt(e.target.value))}
+                defaultValue={freePlan.question_limit}
               />
             </div>
           </CardContent>
@@ -233,12 +490,10 @@ export default function UsageLimitsPage() {
                 Perfect Responses per Month
               </label>
               <Input
+                ref={premiumPerfectResponsesRef}
                 type="number"
                 min="-1"
-                value={premiumPerfectResponses}
-                onChange={(e) =>
-                  setPremiumPerfectResponses(parseInt(e.target.value))
-                }
+                defaultValue={premiumPlan.perfect_response_limit}
               />
               <p className="text-xs text-gray-500">Enter -1 for unlimited</p>
             </div>
@@ -246,10 +501,10 @@ export default function UsageLimitsPage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Questions per Month</label>
               <Input
+                ref={premiumQuestionsRef}
                 type="number"
                 min="-1"
-                value={premiumQuestions}
-                onChange={(e) => setPremiumQuestions(parseInt(e.target.value))}
+                defaultValue={premiumPlan.question_limit}
               />
               <p className="text-xs text-gray-500">Enter -1 for unlimited</p>
             </div>
@@ -259,20 +514,27 @@ export default function UsageLimitsPage() {
 
       <div className="mt-8 flex justify-between">
         <Button
-          onClick={handleResetUsage}
+          onClick={fetchUsageLimits}
           variant="outline"
-          className="border-red-200 text-red-600 hover:bg-red-50"
+          className="border-blue-200 text-blue-600 hover:bg-blue-50"
+          disabled={loading}
         >
-          Reset All Monthly Usage
+          <RefreshCw
+            className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
+          />
+          Refresh
         </Button>
 
         <Button
-          onClick={handleSave}
+          onClick={handleSaveChanges}
           disabled={saving}
           className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
         >
           {saving ? (
-            "Saving..."
+            <>
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Saving...
+            </>
           ) : (
             <>
               <Save className="h-4 w-4 mr-2" />
@@ -294,8 +556,7 @@ export default function UsageLimitsPage() {
           <li>Existing users will have their limits updated immediately.</li>
           <li>Setting a value to -1 means unlimited usage.</li>
           <li>
-            Usage counters reset automatically at the beginning of each month,
-            or you can manually reset them using the button above.
+            Usage counters reset automatically at the beginning of each month.
           </li>
         </ul>
       </div>

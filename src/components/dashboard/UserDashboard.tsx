@@ -6,11 +6,14 @@ import {
   useSubscriptionSafe,
   useUsageStatsSafe,
 } from "@/lib/hooks/use-subscription-safe";
+import { useUsageLimits } from "@/lib/hooks/use-usage-limits";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Brain, MessageSquare, ArrowRight, Clock } from "lucide-react";
 import GamificationWidget from "./GamificationWidget";
+import { hasPremiumAccess } from "@/lib/subscription-utils";
+import { usePlan } from "@/context/PlanContext";
 
 const UserDashboard = () => {
   const navigate = useNavigate();
@@ -21,8 +24,25 @@ const UserDashboard = () => {
     useUsageStatsSafe();
   const { data: recentResponses = [], isLoading: responsesLoading } =
     useResponses(5);
+  const { data: usageLimits, isLoading: limitsLoading } = useUsageLimits();
 
-  const loading = statsLoading || responsesLoading;
+  // Get plan data from context
+  const planContext = usePlan();
+
+  // Use context data or fallback to local calculation
+  const isPremium =
+    planContext.isPremium ||
+    hasPremiumAccess(
+      user
+        ? {
+            ...user,
+            subscriptions: subscription ? [subscription] : [],
+            role: user.role || "free",
+          }
+        : null,
+    );
+
+  const loading = statsLoading || responsesLoading || limitsLoading;
 
   if (loading) {
     return (
@@ -92,44 +112,46 @@ const UserDashboard = () => {
                 <div className="flex justify-between text-sm font-medium">
                   <span>
                     {usageStats.used} /{" "}
-                    {usageStats.total === Infinity
+                    {planContext.question_limit === -1
                       ? "Unlimited"
-                      : usageStats.total}{" "}
+                      : planContext.question_limit}{" "}
                     questions
                   </span>
                   <span className="text-blue-700 font-semibold">
-                    {usageStats.total === Infinity
-                      ? "Pro"
+                    {isPremium
+                      ? "Premium"
                       : Math.min(
                           100,
-                          (usageStats.used / usageStats.total) * 100,
+                          (usageStats.used / planContext.question_limit) * 100,
                         ).toFixed(0) + "%"}
                   </span>
                 </div>
                 <Progress
                   value={
-                    usageStats.total === Infinity
+                    isPremium || planContext.question_limit === -1
                       ? 100
                       : Math.min(
                           100,
-                          (usageStats.used / usageStats.total) * 100,
+                          (usageStats.used / planContext.question_limit) * 100,
                         )
                   }
                   className="h-3 bg-blue-100"
                 />
                 <div className="pt-1">
-                  {usageStats.used >= usageStats.total &&
-                    usageStats.total !== Infinity && (
+                  {subscription?.plan_type !== "premium" &&
+                    !isPremium &&
+                    usageStats.used >=
+                      (usageLimits?.free?.question_limit || 10) && (
                       <Button
                         onClick={() => navigate("/subscription")}
                         className="w-full mt-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium py-2"
                       >
-                        <span className="mr-1">✨</span> Upgrade to Pro
+                        <span className="mr-1">✨</span> Upgrade to Premium
                       </Button>
                     )}
-                  {usageStats.total === Infinity && (
+                  {isPremium && (
                     <div className="text-xs text-center text-green-600 font-medium mt-1">
-                      <span className="inline-block mr-1">✓</span> Pro
+                      <span className="inline-block mr-1">✓</span> Premium
                       subscription active
                     </div>
                   )}

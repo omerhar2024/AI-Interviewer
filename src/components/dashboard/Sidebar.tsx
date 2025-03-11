@@ -164,7 +164,7 @@ const Sidebar = ({ activePath = "/dashboard" }: SidebarProps) => {
         />
 
         <NavItem
-          href="/practice"
+          href="/practice-categories"
           label="Practice"
           icon={
             <svg
@@ -189,7 +189,9 @@ const Sidebar = ({ activePath = "/dashboard" }: SidebarProps) => {
               />
             </svg>
           }
-          isActive={activePath === "/practice"}
+          isActive={
+            activePath === "/practice-categories" || activePath === "/practice"
+          }
         />
 
         <NavItem

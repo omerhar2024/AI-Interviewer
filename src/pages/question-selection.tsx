@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import { useQuestions, QuestionFilters } from "@/lib/hooks/use-questions";
 import { useSubscription, useUsageStats } from "@/lib/hooks/use-subscription";
+import { useUsageLimits } from "@/lib/hooks/use-usage-limits";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -57,8 +58,9 @@ export default function QuestionSelectionPage() {
 
   const { data: subscription } = useSubscription();
   const { data: usageStats, isLoading: statsLoading } = useUsageStats();
+  const { data: usageLimits, isLoading: limitsLoading } = useUsageLimits();
 
-  const loading = questionsLoading || statsLoading;
+  const loading = questionsLoading || statsLoading || limitsLoading;
   const usageCount = usageStats?.used || 0;
 
   // For admin user (omerhar2024@gmail.com), show all questions regardless of type
@@ -85,15 +87,20 @@ export default function QuestionSelectionPage() {
         return;
       }
 
-      // Check if user has reached their question limit
-      const questionLimit = subscriptionData.question_limit;
+      // Get the appropriate question limit based on plan type
+      const planType = subscriptionData.plan_type || "free";
+      const questionLimit =
+        planType === "premium"
+          ? usageLimits?.premium?.question_limit || -1
+          : usageLimits?.free?.question_limit || 10;
+
       if (questionLimit !== -1 && usageCount >= questionLimit) {
         navigate("/subscription");
         toast({
           variant: "destructive",
           title: "Usage Limit Reached",
           description:
-            subscriptionData.plan_type === "free"
+            planType === "free"
               ? `You've reached your limit of ${questionLimit} questions. Please upgrade to Premium for more.`
               : `You've reached your limit of ${questionLimit} questions. Please contact support for assistance.`,
         });
@@ -123,11 +130,12 @@ export default function QuestionSelectionPage() {
       </div>
 
       {!isAdmin &&
-        usageCount >= 10 &&
+        usageCount >= (usageLimits?.free?.question_limit || 10) &&
         subscription?.plan_type !== "premium" && (
           <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-8">
             <p className="text-yellow-700">
-              You have reached your free tier limit of 10 questions. Please
+              You have reached your free tier limit of{" "}
+              {usageLimits?.free?.question_limit || 10} questions. Please
               upgrade to continue practicing.
             </p>
             <Button
