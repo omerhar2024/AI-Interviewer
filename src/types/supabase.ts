@@ -168,8 +168,11 @@ export type Database = {
           perfect_response_limit: number | null
           perfect_responses_used: number | null
           plan_type: string
+          question_limit: number | null
           start_date: string
+          status: string | null
           stripe_subscription_id: string | null
+          tier: string | null
           user_id: string
         }
         Insert: {
@@ -178,8 +181,11 @@ export type Database = {
           perfect_response_limit?: number | null
           perfect_responses_used?: number | null
           plan_type: string
+          question_limit?: number | null
           start_date: string
+          status?: string | null
           stripe_subscription_id?: string | null
+          tier?: string | null
           user_id: string
         }
         Update: {
@@ -188,15 +194,18 @@ export type Database = {
           perfect_response_limit?: number | null
           perfect_responses_used?: number | null
           plan_type?: string
+          question_limit?: number | null
           start_date?: string
+          status?: string | null
           stripe_subscription_id?: string | null
+          tier?: string | null
           user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "subscriptions_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -289,7 +298,10 @@ export type Database = {
           id: string
           role: string | null
           stripe_customer_id: string | null
+          subscription_end_date: string | null
+          subscription_plan: string | null
           subscription_status: string | null
+          updated_at: string | null
         }
         Insert: {
           created_at?: string
@@ -297,7 +309,10 @@ export type Database = {
           id: string
           role?: string | null
           stripe_customer_id?: string | null
+          subscription_end_date?: string | null
+          subscription_plan?: string | null
           subscription_status?: string | null
+          updated_at?: string | null
         }
         Update: {
           created_at?: string
@@ -305,7 +320,10 @@ export type Database = {
           id?: string
           role?: string | null
           stripe_customer_id?: string | null
+          subscription_end_date?: string | null
+          subscription_plan?: string | null
           subscription_status?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -314,14 +332,97 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_user_direct: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      ensure_usage_limits: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      get_all_auth_users: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          email: string
+          created_at: string
+          role: string
+        }[]
+      }
+      get_user_plan_and_limits: {
+        Args: {
+          user_id: string
+        }
+        Returns: {
+          subscription_plan: string
+          subscription_end_date: string
+          role: string
+          question_limit: number
+          perfect_response_limit: number
+          questions_used: number
+          perfect_responses_used: number
+        }[]
+      }
       increment_usage_count: {
         Args: {
           p_user_id: string
         }
         Returns: undefined
       }
+      list_all_users: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          email: string
+          created_at: string
+          role: string
+        }[]
+      }
+      refresh_user_plan_data: {
+        Args: {
+          user_id: string
+        }
+        Returns: boolean
+      }
       reset_monthly_usage: {
         Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      sync_all_user_roles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          user_id: string
+          old_role: string
+          new_role: string
+        }[]
+      }
+      sync_user_immediately: {
+        Args: {
+          user_id: string
+        }
+        Returns: boolean
+      }
+      sync_user_subscription: {
+        Args: {
+          user_id: string
+        }
+        Returns: boolean
+      }
+      sync_users: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      sync_users_from_auth: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      update_user_role: {
+        Args: {
+          p_user_id: string
+          p_role: string
+        }
         Returns: undefined
       }
     }

@@ -2,10 +2,13 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
-import { useSubscription } from "@/lib/hooks/use-subscription";
+import { useSubscriptionSafe } from "@/lib/hooks/use-subscription-safe";
+import { useUsageStatsSafe } from "@/lib/hooks/use-subscription-safe";
+import { useUsageLimits } from "@/lib/hooks/use-usage-limits";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,19 +25,66 @@ import {
   AlertCircle,
   Calendar,
   CreditCard,
+  BarChart,
 } from "lucide-react";
+import { hasPremiumAccess } from "@/lib/subscription-utils";
+import { usePlan } from "@/context/PlanContext";
 
 export default function SubscriptionManagementPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { data: subscription, isLoading, refetch } = useSubscription();
+  const { data: subscription, isLoading, refetch } = useSubscriptionSafe();
+  const { data: usageStats } = useUsageStatsSafe();
+  const { data: usageLimits } = useUsageLimits();
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  const isPremium = subscription?.plan_type === "premium";
+  // Get plan data from context
+  const planContext = usePlan();
+
+  // Use context data or fallback to local calculation
+  const isPremium =
+    planContext.isPremium ||
+    hasPremiumAccess(
+      user
+        ? {
+            ...user,
+            subscriptions: subscription ? [subscription] : [],
+            role: user.role || "free",
+          }
+        : null,
+    );
   const isActive = subscription?.status === "active";
   const isCanceled = subscription?.status === "canceled";
+
+  // Get the limits from the context and usage limits hook
+  const freeQuestionLimit = usageLimits?.free?.question_limit || 10;
+  const freePerfectResponseLimit =
+    usageLimits?.free?.perfect_response_limit || 5;
+  const premiumQuestionLimit =
+    usageLimits?.premium?.question_limit || planContext.question_limit || 50;
+  const premiumPerfectResponseLimit =
+    usageLimits?.premium?.perfect_response_limit ||
+    planContext.perfect_response_limit ||
+    50;
+
+  // Calculate usage statistics
+  const questionsUsed = usageStats?.used || 0;
+  const questionsLimit = isPremium ? premiumQuestionLimit : freeQuestionLimit;
+  const questionsRemaining =
+    isPremium || questionsLimit === -1
+      ? "Unlimited"
+      : Math.max(0, questionsLimit - questionsUsed);
+
+  const perfectResponsesUsed = subscription?.perfect_responses_used || 0;
+  const perfectResponsesLimit = isPremium
+    ? premiumPerfectResponseLimit
+    : freePerfectResponseLimit;
+  const perfectResponsesRemaining =
+    isPremium || perfectResponsesLimit === -1
+      ? "Unlimited"
+      : Math.max(0, perfectResponsesLimit - perfectResponsesUsed);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "N/A";
@@ -135,16 +185,11 @@ export default function SubscriptionManagementPage() {
               <span className="font-medium">Plan</span>
               <div className="flex items-center gap-2">
                 <span className="font-bold capitalize">
-                  {subscription?.plan_type || "Free"}
+                  {isPremium ? "Premium" : "Free"}
                 </span>
-                {isPremium && isActive && (
+                {isPremium && (
                   <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
                     <CheckCircle className="h-3 w-3" /> Active
-                  </span>
-                )}
-                {isPremium && isCanceled && (
-                  <span className="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" /> Canceled
                   </span>
                 )}
               </div>
@@ -161,7 +206,7 @@ export default function SubscriptionManagementPage() {
               </div>
             )}
 
-            {isPremium && isCanceled && (
+            {isPremium && subscription?.status === "canceled" && (
               <div className="flex items-center justify-between">
                 <span className="font-medium">Access Until</span>
                 <span className="font-bold">
@@ -179,29 +224,91 @@ export default function SubscriptionManagementPage() {
               </span>
             </div>
 
+            {/* Usage Statistics */}
             <div className="pt-4 border-t">
-              {isPremium && isActive ? (
-                <Button
-                  variant="destructive"
-                  onClick={() => setIsCancelDialogOpen(true)}
-                  className="w-full"
-                >
-                  Cancel Subscription
-                </Button>
-              ) : isPremium && isCanceled ? (
-                <div className="text-center space-y-4">
-                  <p className="text-amber-600">
-                    Your subscription has been canceled but you still have
-                    access until {formatDate(subscription?.end_date)}
+              <h3 className="font-medium mb-3 flex items-center gap-2">
+                <BarChart className="h-4 w-4 text-blue-600" />
+                Usage Statistics
+              </h3>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-sm font-medium mb-1">
+                    <span>Practice Questions</span>
+                    <span>
+                      {questionsUsed} /{" "}
+                      {isPremium ? "Unlimited" : questionsLimit}
+                    </span>
+                  </div>
+                  <Progress
+                    value={
+                      isPremium || questionsLimit === -1
+                        ? 100
+                        : Math.min(100, (questionsUsed / questionsLimit) * 100)
+                    }
+                    className="h-2 bg-blue-100"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {isPremium
+                      ? "Unlimited questions with your premium plan"
+                      : `${questionsRemaining} questions remaining`}
                   </p>
-                  <Button
-                    variant="default"
-                    onClick={() => navigate("/subscription")}
-                    className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
-                  >
-                    Reactivate Subscription
-                  </Button>
                 </div>
+
+                <div>
+                  <div className="flex justify-between text-sm font-medium mb-1">
+                    <span>Perfect Responses</span>
+                    <span>
+                      {perfectResponsesUsed} /{" "}
+                      {isPremium ? "Unlimited" : perfectResponsesLimit}
+                    </span>
+                  </div>
+                  <Progress
+                    value={
+                      isPremium || perfectResponsesLimit === -1
+                        ? 100
+                        : Math.min(
+                            100,
+                            (perfectResponsesUsed / perfectResponsesLimit) *
+                              100,
+                          )
+                    }
+                    className="h-2 bg-blue-100"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {isPremium
+                      ? "Unlimited perfect responses with your premium plan"
+                      : `${perfectResponsesRemaining} perfect responses remaining`}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t">
+              {isPremium ? (
+                subscription?.status === "canceled" ? (
+                  <div className="text-center space-y-4">
+                    <p className="text-amber-600">
+                      Your subscription has been canceled but you still have
+                      access until {formatDate(subscription?.end_date)}
+                    </p>
+                    <Button
+                      variant="default"
+                      onClick={() => navigate("/subscription")}
+                      className="bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
+                    >
+                      Reactivate Subscription
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="destructive"
+                    onClick={() => setIsCancelDialogOpen(true)}
+                    className="w-full"
+                  >
+                    Cancel Subscription
+                  </Button>
+                )
               ) : (
                 <Button
                   onClick={() => navigate("/subscription")}

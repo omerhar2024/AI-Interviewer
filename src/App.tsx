@@ -1,8 +1,9 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { Navbar } from "@/components/layout/navbar";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AuthProvider } from "@/lib/auth";
+import { PlanProvider } from "@/context/PlanContext";
 import { Toaster } from "@/components/ui/toaster";
 import AppLayout from "@/components/layout/AppLayout";
 import Home from "@/components/home";
@@ -10,6 +11,7 @@ import LoginPage from "@/pages/login";
 import SignupPage from "@/pages/signup";
 import DashboardPage from "@/pages/dashboard";
 import QuestionSelectionPage from "@/pages/question-selection";
+import PracticeCategoriesPage from "@/pages/practice-categories";
 import PreparationPage from "@/pages/preparation";
 import RecordingPage from "@/pages/recording";
 import BehavioralRecordingPage from "@/pages/behavioral-recording";
@@ -40,8 +42,13 @@ const AdminUsageLimitsPage = lazy(() => import("@/pages/admin/usage-limits"));
 const FixDatabasePage = lazy(() => import("@/pages/admin/fix-database"));
 const FixUsersPage = lazy(() => import("@/pages/admin/fix-users"));
 
+import { useSyncSubscription } from "@/lib/hooks/use-sync-subscription";
+
 function AppContent() {
   const location = useLocation();
+
+  // Use the sync subscription hook to keep subscription data in sync
+  useSyncSubscription();
   const isDashboardRoute =
     location.pathname.startsWith("/dashboard") ||
     location.pathname.startsWith("/practice") ||
@@ -82,6 +89,16 @@ function AppContent() {
               <ProtectedRoute>
                 <AppLayout>
                   <DashboardPage />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/practice-categories"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <PracticeCategoriesPage />
                 </AppLayout>
               </ProtectedRoute>
             }
@@ -338,7 +355,9 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <PlanProvider>
+        <AppContent />
+      </PlanProvider>
     </AuthProvider>
   );
 }
