@@ -139,7 +139,7 @@ export default function SubscriptionPage() {
                   ? "You have unlimited perfect responses with your premium plan."
                   : perfectResponsesRemaining === 0
                     ? "You've reached your monthly limit. Upgrade for unlimited perfect responses."
-                    : `You have ${perfectResponsesRemaining} perfect responses remaining this month.`}
+                    : `${perfectResponsesUsed} of ${perfectResponsesLimit} perfect responses used`}
               </p>
             </div>
           </div>
@@ -313,7 +313,7 @@ export default function SubscriptionPage() {
                     ? "You have unlimited perfect responses with your premium plan."
                     : perfectResponsesRemaining === 0
                       ? "You've reached your monthly limit. Upgrade for unlimited perfect responses."
-                      : `You have ${perfectResponsesRemaining} perfect responses remaining this month.`}
+                      : `${perfectResponsesUsed} of ${perfectResponsesLimit} perfect responses used`}
                 </p>
               </div>
             </div>

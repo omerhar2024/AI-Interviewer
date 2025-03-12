@@ -167,8 +167,16 @@ export default function ProductSenseRecordingPage() {
 
     try {
       setAnalyzing(true);
-
-      const analysis = await analyzeResponse(transcript, question?.text);
+      console.log("Starting analysis with framework:", framework);
+      const analysis = await analyzeResponse(
+        transcript,
+        question?.text,
+        framework,
+      );
+      console.log(
+        "Analysis result received:",
+        analysis ? analysis.substring(0, 100) + "..." : "No analysis",
+      );
       const scoreMatch = analysis.match(/Overall Score: ([0-9.]+)\/10/);
       const overallScore = scoreMatch ? parseFloat(scoreMatch[1]) : 0;
 
@@ -187,6 +195,7 @@ export default function ProductSenseRecordingPage() {
       if (responseError) throw responseError;
 
       if (responseData) {
+        console.log("Saving feedback for response ID:", responseData.id);
         const { error: feedbackError } = await supabase
           .from("feedback")
           .insert({
