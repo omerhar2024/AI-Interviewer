@@ -4,6 +4,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AuthProvider } from "@/lib/auth";
 import { PlanProvider } from "@/context/PlanContext";
+import { FrameworkProvider } from "@/context/FrameworkContext";
 import { Toaster } from "@/components/ui/toaster";
 import { useSyncSubscription } from "@/lib/hooks/use-sync-subscription";
 import AppLayout from "@/components/layout/AppLayout";
@@ -263,7 +264,9 @@ export default function App() {
   return (
     <AuthProvider>
       <PlanProvider>
-        <AppContent />
+        <FrameworkProvider>
+          <AppContent />
+        </FrameworkProvider>
       </PlanProvider>
     </AuthProvider>
   );

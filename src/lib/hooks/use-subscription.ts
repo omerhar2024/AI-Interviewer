@@ -4,9 +4,10 @@ import { useAuth } from "../auth";
 
 export function useSubscription() {
   const { user } = useAuth();
+  const queryKey = ["subscription", user?.id];
 
   return useQuery({
-    queryKey: ["subscription", user?.id],
+    queryKey,
     queryFn: async () => {
       if (!user) return null;
 
@@ -29,7 +30,7 @@ export function useSubscription() {
           });
         }
 
-        // Now try to get the subscription with proper headers
+        // Now try to get the subscription
         const { data, error } = await supabase
           .from("subscriptions")
           .select("*")
@@ -94,6 +95,8 @@ export function useSubscription() {
         };
       }
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
     enabled: !!user,
   });
 }
@@ -158,5 +161,7 @@ export function useUsageStats() {
       }
     },
     enabled: !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 }
