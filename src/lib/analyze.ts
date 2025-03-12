@@ -12,6 +12,7 @@ export async function analyzeResponse(
   framework?: string,
 ) {
   try {
+    console.log("Analyzing response with framework:", framework);
     // Determine if this is a behavioral or product sense question
     const { data: questionData, error: questionError } = await supabase
       .from("questions")
@@ -25,12 +26,13 @@ export async function analyzeResponse(
     }
 
     const questionType = questionData?.type || "behavioral";
+    console.log("Question type determined:", questionType);
 
     // Call the appropriate analysis function based on question type
     if (questionType === "behavioral") {
       return analyzeBehavioralResponse(transcript, questionText);
     } else {
-      return analyzeProductSenseResponse(transcript, questionText);
+      return analyzeProductSenseResponse(transcript, questionText, framework);
     }
   } catch (error) {
     console.error("Error in analyzeResponse:", error);
@@ -179,6 +181,7 @@ Please provide your evaluation following the format below:
     };
 
     try {
+      console.log("Attempting behavioral analysis with DeepSeek");
       // Try to use DeepSeek API
       const response = await deepseek.chat.completions.create({
         model: "deepseek-chat",
@@ -263,8 +266,10 @@ async function analyzeProductSenseResponse(
   framework?: string,
 ) {
   try {
+    console.log("Starting product sense analysis with framework:", framework);
     // If framework is explicitly provided, use it
     if (framework) {
+      console.log("Using provided framework:", framework);
       switch (framework) {
         case "circles":
           return await analyzeCirclesResponse(transcript, questionText);
@@ -276,11 +281,13 @@ async function analyzeProductSenseResponse(
           return await analyzeUserCentricResponse(transcript, questionText);
         default:
           // If framework is provided but not recognized, fall back to detection
+          console.log("Framework not recognized, falling back to detection");
           break;
       }
     }
 
     // Try to detect which framework was used if not explicitly provided
+    console.log("Attempting to detect framework from transcript");
     const usedCircles =
       transcript.includes("Comprehend") &&
       transcript.includes("Identify") &&
@@ -300,15 +307,20 @@ async function analyzeProductSenseResponse(
 
     // Call the appropriate framework-specific analysis function
     if (usedCircles) {
+      console.log("Detected CIRCLES framework");
       return await analyzeCirclesResponse(transcript, questionText);
     } else if (usedDesignThinking) {
+      console.log("Detected Design Thinking framework");
       return await analyzeDesignThinkingResponse(transcript, questionText);
     } else if (usedJTBD) {
+      console.log("Detected JTBD framework");
       return await analyzeJTBDResponse(transcript, questionText);
     } else if (usedUserCentric) {
+      console.log("Detected User-Centric framework");
       return await analyzeUserCentricResponse(transcript, questionText);
     } else {
       // Default to generic product sense analysis if no specific framework is detected
+      console.log("No specific framework detected, using generic analysis");
       return await analyzeGenericProductSenseResponse(transcript, questionText);
     }
   } catch (error) {

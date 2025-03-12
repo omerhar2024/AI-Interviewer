@@ -224,66 +224,6 @@ export default function SubscriptionManagementPage() {
               </span>
             </div>
 
-            {/* Usage Statistics */}
-            <div className="pt-4 border-t">
-              <h3 className="font-medium mb-3 flex items-center gap-2">
-                <BarChart className="h-4 w-4 text-blue-600" />
-                Usage Statistics
-              </h3>
-
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-sm font-medium mb-1">
-                    <span>Practice Questions</span>
-                    <span>
-                      {questionsUsed} /{" "}
-                      {isPremium ? "Unlimited" : questionsLimit}
-                    </span>
-                  </div>
-                  <Progress
-                    value={
-                      isPremium || questionsLimit === -1
-                        ? 100
-                        : Math.min(100, (questionsUsed / questionsLimit) * 100)
-                    }
-                    className="h-2 bg-blue-100"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {isPremium
-                      ? "Unlimited questions with your premium plan"
-                      : `${questionsRemaining} questions remaining`}
-                  </p>
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-sm font-medium mb-1">
-                    <span>Perfect Responses</span>
-                    <span>
-                      {perfectResponsesUsed} /{" "}
-                      {isPremium ? "Unlimited" : perfectResponsesLimit}
-                    </span>
-                  </div>
-                  <Progress
-                    value={
-                      isPremium || perfectResponsesLimit === -1
-                        ? 100
-                        : Math.min(
-                            100,
-                            (perfectResponsesUsed / perfectResponsesLimit) *
-                              100,
-                          )
-                    }
-                    className="h-2 bg-blue-100"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {isPremium
-                      ? "Unlimited perfect responses with your premium plan"
-                      : `${perfectResponsesRemaining} perfect responses remaining`}
-                  </p>
-                </div>
-              </div>
-            </div>
-
             <div className="pt-4 border-t">
               {isPremium ? (
                 subscription?.status === "canceled" ? (

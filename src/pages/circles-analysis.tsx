@@ -1,25 +1,32 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
-import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
+import { ArrowLeft, ThumbsUp, ThumbsDown } from "lucide-react";
 import { FormattedText } from "@/components/ui/formatted-text";
-import { ArrowLeft, ThumbsUp, ThumbsDown, Star } from "lucide-react";
+import { AnalysisCard } from "@/components/ui/analysis-card";
 
 export default function CirclesAnalysisPage() {
   const { responseId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [response, setResponse] = useState<any>(null);
   const [feedback, setFeedback] = useState<any>(null);
   const [question, setQuestion] = useState<any>(null);
+  const [notes, setNotes] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        if (!responseId || !user) return;
+
         // Fetch response data
         const { data: responseData, error: responseError } = await supabase
           .from("responses")
@@ -40,7 +47,11 @@ export default function CirclesAnalysisPage() {
 
         if (feedbackError && feedbackError.code !== "PGRST116")
           throw feedbackError;
-        setFeedback(feedbackData);
+
+        if (feedbackData) {
+          setFeedback(feedbackData);
+          setNotes(feedbackData.notes || "");
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
         toast({
@@ -53,12 +64,12 @@ export default function CirclesAnalysisPage() {
       }
     };
 
-    if (responseId) fetchData();
-  }, [responseId, toast]);
+    fetchData();
+  }, [responseId, user, toast]);
 
   const handleRateFeedback = async (rating: number) => {
     try {
-      if (!feedback) return;
+      if (!feedback || !responseId) return;
 
       const { error } = await supabase
         .from("feedback")
@@ -83,6 +94,31 @@ export default function CirclesAnalysisPage() {
     }
   };
 
+  const handleSaveNotes = async () => {
+    try {
+      if (!feedback || !responseId) return;
+
+      const { error } = await supabase
+        .from("feedback")
+        .update({ notes })
+        .eq("id", feedback.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Notes Saved",
+        description: "Your notes have been saved successfully.",
+      });
+    } catch (error) {
+      console.error("Error saving notes:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save notes. Please try again.",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -102,29 +138,37 @@ export default function CirclesAnalysisPage() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Dashboard
         </Button>
-        <h1 className="text-4xl font-bold">CIRCLES Framework Analysis</h1>
+        <h1 className="text-3xl font-bold">CIRCLES Framework Analysis</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Question and Response Section */}
-        <div className="space-y-6">
-          <Card className="p-6 bg-gradient-to-br from-blue-50 to-white rounded-xl shadow-lg border border-blue-100">
-            <h2 className="text-xl font-semibold text-blue-800 mb-4">
-              Question
-            </h2>
-            <p className="text-lg text-gray-700">{question?.text}</p>
+      <div className="space-y-8 max-w-4xl mx-auto">
+        {/* Question Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Question</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg">{question?.text}</p>
             <div className="mt-4 p-3 bg-blue-100 rounded-lg">
               <p className="text-sm font-medium text-blue-800">
                 Framework Used: CIRCLES
               </p>
             </div>
-          </Card>
+          </CardContent>
+        </Card>
 
-          <Card className="p-6 bg-gradient-to-br from-gray-50 to-white rounded-xl shadow-lg border border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
-              Your Response
-            </h2>
-            <div className="bg-white p-4 rounded-md border border-gray-100">
+        {/* Analysis Card */}
+        {feedback && (
+          <AnalysisCard analysisText={feedback.text} framework="circles" />
+        )}
+
+        {/* Response Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Response</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="whitespace-pre-wrap">
               {response?.notes?.formatted_response ? (
                 <div
                   dangerouslySetInnerHTML={{
@@ -137,76 +181,8 @@ export default function CirclesAnalysisPage() {
                 />
               )}
             </div>
-          </Card>
-        </div>
-
-        {/* Analysis Section */}
-        <div className="space-y-6">
-          <Card className="p-6 bg-gradient-to-br from-blue-50 to-white rounded-xl shadow-lg border border-blue-100">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-blue-800">
-                CIRCLES Analysis
-              </h2>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`h-5 w-5 ${i < Math.round(feedback?.score || 0) / 2 ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
-                    />
-                  ))}
-                </div>
-                <span className="text-lg font-bold text-blue-800">
-                  {feedback?.score?.toFixed(1) || "N/A"}/10
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-md border border-blue-100 overflow-auto max-h-[600px]">
-              {feedback?.text || "No analysis available yet."}
-            </div>
-
-            <div className="mt-6 flex justify-center gap-4">
-              <p className="text-sm text-gray-600 mr-2">
-                Was this analysis helpful?
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className={`${feedback?.rating === 1 ? "bg-green-100 border-green-300" : ""}`}
-                onClick={() => handleRateFeedback(1)}
-              >
-                <ThumbsUp className="h-4 w-4 mr-1" />
-                Yes
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className={`${feedback?.rating === 0 ? "bg-red-100 border-red-300" : ""}`}
-                onClick={() => handleRateFeedback(0)}
-              >
-                <ThumbsDown className="h-4 w-4 mr-1" />
-                No
-              </Button>
-            </div>
-          </Card>
-
-          <div className="flex gap-4">
-            <Button
-              onClick={() => navigate("/practice")}
-              className="flex-1 bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 text-white"
-            >
-              Practice Another Question
-            </Button>
-            <Button
-              onClick={() => navigate("/dashboard")}
-              variant="outline"
-              className="flex-1"
-            >
-              Back to Dashboard
-            </Button>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

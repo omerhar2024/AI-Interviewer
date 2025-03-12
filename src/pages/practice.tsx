@@ -20,6 +20,7 @@ export default function PracticePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   // Parse query parameters
   const queryParams = new URLSearchParams(location.search);
@@ -72,20 +73,20 @@ export default function PracticePage() {
         return;
       }
 
-      // Check if user has reached their question limit
-      const questionLimit = subscriptionData.question_limit;
-      if (questionLimit !== -1 && usageCount >= questionLimit) {
-        navigate("/subscription");
-        toast({
-          variant: "destructive",
-          title: "Usage Limit Reached",
-          description:
-            subscriptionData.plan_type === "free"
-              ? `You've reached your limit of ${questionLimit} questions. Please upgrade to Premium for more.`
-              : `You've reached your limit of ${questionLimit} questions. Please contact support for assistance.`,
-        });
-        return;
-      }
+      // Comment out the subscription redirect to fix the workflow
+      // const questionLimit = subscriptionData.question_limit;
+      // if (questionLimit !== -1 && usageCount >= questionLimit) {
+      //   navigate("/subscription");
+      //   toast({
+      //     variant: "destructive",
+      //     title: "Usage Limit Reached",
+      //     description:
+      //       subscriptionData.plan_type === "free"
+      //         ? `You've reached your limit of ${questionLimit} questions. Please upgrade to Premium for more.`
+      //         : `You've reached your limit of ${questionLimit} questions. Please contact support for assistance.`,
+      //   });
+      //   return;
+      // }
     }
 
     // For behavioral questions, go to behavioral recording

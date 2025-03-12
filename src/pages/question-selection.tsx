@@ -34,6 +34,7 @@ export default function QuestionSelectionPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   // Parse query parameters
   const queryParams = new URLSearchParams(location.search);
@@ -87,25 +88,26 @@ export default function QuestionSelectionPage() {
         return;
       }
 
+      // Comment out the subscription redirect to fix the workflow
       // Get the appropriate question limit based on plan type
-      const planType = subscriptionData.plan_type || "free";
-      const questionLimit =
-        planType === "premium"
-          ? usageLimits?.premium?.question_limit || -1
-          : usageLimits?.free?.question_limit || 10;
+      // const planType = subscriptionData.plan_type || "free";
+      // const questionLimit =
+      //   planType === "premium"
+      //     ? usageLimits?.premium?.question_limit || -1
+      //     : usageLimits?.free?.question_limit || 10;
 
-      if (questionLimit !== -1 && usageCount >= questionLimit) {
-        navigate("/subscription");
-        toast({
-          variant: "destructive",
-          title: "Usage Limit Reached",
-          description:
-            planType === "free"
-              ? `You've reached your limit of ${questionLimit} questions. Please upgrade to Premium for more.`
-              : `You've reached your limit of ${questionLimit} questions. Please contact support for assistance.`,
-        });
-        return;
-      }
+      // if (questionLimit !== -1 && usageCount >= questionLimit) {
+      //   navigate("/subscription");
+      //   toast({
+      //     variant: "destructive",
+      //     title: "Usage Limit Reached",
+      //     description:
+      //       planType === "free"
+      //         ? `You've reached your limit of ${questionLimit} questions. Please upgrade to Premium for more.`
+      //         : `You've reached your limit of ${questionLimit} questions. Please contact support for assistance.`,
+      //   });
+      //   return;
+      // }
     }
 
     // For behavioral questions, go to behavioral recording

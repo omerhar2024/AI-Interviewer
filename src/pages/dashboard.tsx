@@ -208,16 +208,10 @@ export default function DashboardPage() {
               <div className="flex justify-between items-center mt-2">
                 <span className="font-medium">Perfect Responses</span>
                 <span className="text-lg font-bold">
+                  {planContext.perfect_responses_used} /{" "}
                   {planContext.perfect_response_limit === -1
                     ? "Unlimited"
-                    : Math.max(
-                        0,
-                        planContext.perfect_response_limit -
-                          planContext.perfect_responses_used,
-                      )}
-                  {subscription?.plan_type !== "premium" &&
-                    !isPremium &&
-                    ` / ${usageLimits?.free?.perfect_response_limit || 5}`}
+                    : planContext.perfect_response_limit}
                 </span>
               </div>
 
